@@ -1,1 +1,693 @@
-placeholder
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KukBook — Accounting ERP</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; height: 100vh; overflow: hidden; }
+    [v-cloak] { display: none; }
+    #app { display: flex; height: 100vh; }
+    .sidebar { width: 240px; min-width: 240px; background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-logo { padding: 20px 16px 16px; border-bottom: 1px solid #1e293b; }
+    .sidebar-logo h1 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+    .sidebar-logo span { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+    .nav-group { padding: 12px 0 4px; }
+    .nav-group-label { padding: 0 16px 6px; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.2px; color: #475569; font-weight: 600; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; transition: all .15s; font-size: 0.82rem; color: #94a3b8; border-left: 3px solid transparent; }
+    .nav-item:hover { background: #1e293b; color: #e2e8f0; }
+    .nav-item.active { background: #1e3a5f; color: #60a5fa; border-left-color: #3b82f6; font-weight: 600; }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 0 24px; height: 56px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+    .topbar h2 { font-size: 1rem; font-weight: 600; flex: 1; }
+    .topbar-search { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; width: 200px; outline: none; }
+    .topbar-search:focus { border-color: #3b82f6; background: #fff; }
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; }
+    .kpi-label { font-size: 0.75rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-value { font-size: 1.6rem; font-weight: 700; margin: 6px 0 2px; }
+    .kpi-sub { font-size: 0.72rem; color: #64748b; }
+    .kpi-green { color: #16a34a; } .kpi-red { color: #dc2626; } .kpi-blue { color: #2563eb; } .kpi-purple { color: #7c3aed; }
+    .card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 20px; }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 0.9rem; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { padding: 10px 16px; text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .5px; color: #64748b; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
+    td { padding: 11px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+    .btn-primary { background: #3b82f6; color: #fff; } .btn-primary:hover { background: #2563eb; }
+    .btn-success { background: #16a34a; color: #fff; } .btn-success:hover { background: #15803d; }
+    .btn-danger { background: #ef4444; color: #fff; } .btn-danger:hover { background: #dc2626; }
+    .btn-ghost { background: transparent; color: #64748b; border: 1px solid #e2e8f0; } .btn-ghost:hover { background: #f1f5f9; }
+    .btn-sm { padding: 4px 10px; font-size: 0.75rem; } .btn-icon { padding: 6px; border-radius: 6px; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+    .badge-green { background: #dcfce7; color: #16a34a; } .badge-red { background: #fee2e2; color: #dc2626; }
+    .badge-yellow { background: #fef9c3; color: #ca8a04; } .badge-blue { background: #dbeafe; color: #2563eb; }
+    .badge-gray { background: #f1f5f9; color: #64748b; } .badge-purple { background: #ede9fe; color: #7c3aed; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: #fff; border-radius: 16px; width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,.15); }
+    .modal-lg { width: 720px; }
+    .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 1rem; font-weight: 600; }
+    .modal-body { padding: 20px 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 10px; }
+    .close-btn { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 4px; border-radius: 6px; display: flex; }
+    .close-btn:hover { background: #f1f5f9; color: #475569; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 0.78rem; font-weight: 500; color: #475569; }
+    input, select, textarea { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 0.83rem; outline: none; width: 100%; font-family: inherit; color: #1e293b; background: #fff; }
+    input:focus, select:focus, textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+    textarea { resize: vertical; min-height: 80px; }
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    .chart-card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 20px; }
+    .chart-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 16px; color: #1e293b; }
+    .text-right { text-align: right; } .text-sm { font-size: 0.8rem; } .text-xs { font-size: 0.72rem; }
+    .text-muted { color: #94a3b8; } .font-bold { font-weight: 700; } .font-semibold { font-weight: 600; }
+    .mt-4 { margin-top: 16px; } .mb-4 { margin-bottom: 16px; } .p-4 { padding: 16px; }
+    .flex { display: flex; } .items-center { align-items: center; } .gap-2 { gap: 8px; }
+    .section-total td { font-weight: 700; background: #f1f5f9; border-top: 2px solid #e2e8f0; }
+    .debit-col { color: #1d4ed8; } .credit-col { color: #be123c; }
+    .balanced { color: #16a34a; font-weight: 600; } .unbalanced { color: #dc2626; font-weight: 600; }
+    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.83rem; }
+    .detail-label { color: #64748b; font-weight: 500; }
+    .actions-col { display: flex; gap: 6px; }
+    .account-type-header td { font-weight: 700; background: #eff6ff; color: #1e40af; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .5px; }
+  </style>
+  </head>
+<body>
+<div id="app" v-cloak>
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h1>📋 KukBook</h1><span>Accounting ERP</span></div>
+    <nav>
+      <div class="nav-group" v-for="group in navGroups" :key="group.label">
+        <div class="nav-group-label">{{ group.label }}</div>
+        <div class="nav-item" v-for="item in group.items" :key="item.page" :class="{ active: page === item.page }" @click="page = item.page">
+          <span v-html="item.icon"></span>{{ item.label }}
+        </div>
+      </div>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h2>{{ pageTitle }}</h2>
+      <input class="topbar-search" v-model="search" placeholder="Search…" />
+      <span class="text-xs text-muted">KukBook ERP · April 2026</span>
+    </div>
+    <div class="content">
+
+      <div v-if="page==='dashboard'">
+        <div class="kpi-grid">
+          <div class="kpi-card" v-for="k in kpis" :key="k.label">
+            <div class="kpi-label">{{ k.label }}</div>
+            <div class="kpi-value" :class="k.cls">{{ fmt(k.value) }}</div>
+            <div class="kpi-sub">{{ k.sub }}</div>
+          </div>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-card"><div class="chart-title">Revenue vs Expenses</div><canvas id="barChart" height="200"></canvas></div>
+          <div class="chart-card"><div class="chart-title">Expense Breakdown</div><canvas id="pieChart" height="200"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Recent Transactions</span><button class="btn btn-ghost btn-sm" @click="page='journal'">View All</button></div>
+          <table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th class="text-right">Debit</th><th class="text-right">Credit</th></tr></thead>
+          <tbody><tr v-for="je in journalEntries.slice(0,5)" :key="je.id"><td>{{ je.date }}</td><td>{{ je.description }}</td><td>{{ je.lines[0].account }}</td><td class="text-right debit-col">{{ je.lines[0].debit ? fmt(je.lines[0].debit) : '—' }}</td><td class="text-right credit-col">{{ je.lines[0].credit ? fmt(je.lines[0].credit) : '—' }}</td></tr></tbody></table>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div class="card"><div class="card-header"><span class="card-title">Low Stock Alert</span></div>
+            <table><thead><tr><th>Item</th><th>Stock</th><th>Reorder At</th></tr></thead>
+            <tbody><tr v-for="i in lowStockItems" :key="i.id"><td>{{ i.name }}</td><td><span class="badge badge-red">{{ i.qty }}</span></td><td>{{ i.reorder }}</td></tr>
+            <tr v-if="!lowStockItems.length"><td colspan="3" class="text-muted text-sm" style="padding:20px;text-align:center">All stock OK ✓</td></tr></tbody></table>
+          </div>
+          <div class="card"><div class="card-header"><span class="card-title">Upcoming Bills</span></div>
+            <table><thead><tr><th>Vendor</th><th>Due</th><th class="text-right">Amount</th></tr></thead>
+            <tbody><tr v-for="b in bills.filter(x=>x.status==='Pending').slice(0,4)" :key="b.id"><td>{{ b.vendor }}</td><td>{{ b.due }}</td><td class="text-right">{{ fmt(b.amount) }}</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="page==='coa'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Chart of Accounts</span><button class="btn btn-primary btn-sm" @click="openForm('account')">+ Add Account</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>Code</th><th>Account Name</th><th>Type</th><th>Sub-Type</th><th class="text-right">Balance</th><th>Actions</th></tr></thead>
+          <tbody>
+            <template v-for="(group, type) in groupedAccounts" :key="type">
+              <tr class="account-type-header"><td colspan="6">{{ type }}</td></tr>
+              <tr v-for="acc in group" :key="acc.id">
+                <td style="padding-left:32px">{{ acc.code }}</td><td>{{ acc.name }}</td>
+                <td><span class="badge" :class="accTypeBadge(acc.type)">{{ acc.type }}</span></td>
+                <td class="text-muted text-xs">{{ acc.subtype }}</td>
+                <td class="text-right font-semibold">{{ fmt(acc.balance) }}</td>
+                <td><div class="actions-col"><button class="btn btn-ghost btn-sm btn-icon" @click="editItem('account',acc)">✎</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('accounts',acc.id)">✕</button></div></td>
+              </tr>
+            </template>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='journal'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Journal Entries</span><button class="btn btn-primary btn-sm" @click="openForm('journal')">+ New Entry</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>JE #</th><th>Date</th><th>Description</th><th>Lines</th><th class="text-right">Total</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="je in filteredJEs" :key="je.id">
+            <td class="font-semibold" style="color:#2563eb">{{ je.id }}</td><td>{{ je.date }}</td><td>{{ je.description }}</td>
+            <td>{{ je.lines.length }} lines</td><td class="text-right">{{ fmt(je.lines.reduce((s,l)=>s+(l.debit||0),0)) }}</td>
+            <td><span class="badge" :class="je.posted?'badge-green':'badge-yellow'">{{ je.posted?'Posted':'Draft' }}</span></td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm" @click="viewEntry(je)">View</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('journalEntries',je.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='customers'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Customers</span><button class="btn btn-primary btn-sm" @click="openForm('customer')">+ Add Customer</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>City</th><th class="text-right">Balance</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="c in filteredCustomers" :key="c.id">
+            <td class="font-semibold">{{ c.name }}</td><td>{{ c.email }}</td><td>{{ c.phone }}</td><td>{{ c.city }}</td>
+            <td class="text-right font-semibold" :style="c.balance>0?'color:#2563eb':''">{{ fmt(c.balance) }}</td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm btn-icon" @click="editItem('customer',c)">✎</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('customers',c.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='invoices'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Invoices (AR)</span><button class="btn btn-primary btn-sm" @click="openForm('invoice')">+ New Invoice</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Due</th><th class="text-right">Amount</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="inv in filteredInvoices" :key="inv.id">
+            <td class="font-semibold" style="color:#2563eb">{{ inv.id }}</td><td>{{ inv.customer }}</td><td>{{ inv.date }}</td><td>{{ inv.due }}</td>
+            <td class="text-right font-semibold">{{ fmt(inv.total) }}</td>
+            <td><span class="badge" :class="badgeClass(inv.status)">{{ inv.status }}</span></td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm" @click="viewInvoice(inv)">View</button><button v-if="inv.status!=='Paid'" class="btn btn-success btn-sm" @click="markInvPaid(inv.id)">Mark Paid</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('invoices',inv.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='vendors'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Vendors</span><button class="btn btn-primary btn-sm" @click="openForm('vendor')">+ Add Vendor</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Category</th><th class="text-right">Balance</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="v in filteredVendors" :key="v.id">
+            <td class="font-semibold">{{ v.name }}</td><td>{{ v.email }}</td><td>{{ v.phone }}</td><td>{{ v.category }}</td>
+            <td class="text-right font-semibold" :style="v.balance>0?'color:#dc2626':''">{{ fmt(v.balance) }}</td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm btn-icon" @click="editItem('vendor',v)">✎</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('vendors',v.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='bills'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Bills (AP)</span><button class="btn btn-primary btn-sm" @click="openForm('bill')">+ New Bill</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>Bill #</th><th>Vendor</th><th>Date</th><th>Due</th><th class="text-right">Amount</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="b in filteredBills" :key="b.id">
+            <td class="font-semibold" style="color:#7c3aed">{{ b.id }}</td><td>{{ b.vendor }}</td><td>{{ b.date }}</td><td>{{ b.due }}</td>
+            <td class="text-right font-semibold">{{ fmt(b.amount) }}</td>
+            <td><span class="badge" :class="badgeClass(b.status)">{{ b.status }}</span></td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm" @click="viewBill(b)">View</button><button v-if="b.status!=='Paid'" class="btn btn-success btn-sm" @click="markBillPaid(b.id)">Pay Bill</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('bills',b.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='inventory'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Inventory</span><button class="btn btn-primary btn-sm" @click="openForm('inventory')">+ Add Item</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th class="text-right">Qty</th><th class="text-right">Cost</th><th class="text-right">Value</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="item in filteredInventory" :key="item.id">
+            <td class="font-semibold text-xs" style="color:#7c3aed">{{ item.sku }}</td><td>{{ item.name }}</td><td>{{ item.category }}</td>
+            <td class="text-right" :style="item.qty<=item.reorder?'color:#dc2626;font-weight:700':''">{{ item.qty }}</td>
+            <td class="text-right">{{ fmt(item.cost) }}</td><td class="text-right font-semibold">{{ fmt(item.qty*item.cost) }}</td>
+            <td><span class="badge" :class="item.qty<=item.reorder?'badge-red':'badge-green'">{{ item.qty<=item.reorder?'Low':'In Stock' }}</span></td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm btn-icon" @click="editItem('inventory',item)">✎</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('inventory',item.id)">✕</button></div></td>
+          </tr></tbody>
+          <tfoot><tr class="section-total"><td colspan="5">Total Inventory Value</td><td class="text-right">{{ fmt(inventory.reduce((s,i)=>s+i.qty*i.cost,0)) }}</td><td colspan="2"></td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <div v-if="page==='po'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Purchase Orders</span><button class="btn btn-primary btn-sm" @click="openForm('po')">+ New PO</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>PO #</th><th>Vendor</th><th>Date</th><th>Expected</th><th class="text-right">Total</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="po in filteredPOs" :key="po.id">
+            <td class="font-semibold" style="color:#0891b2">{{ po.id }}</td><td>{{ po.vendor }}</td><td>{{ po.date }}</td><td>{{ po.expected }}</td>
+            <td class="text-right font-semibold">{{ fmt(po.total) }}</td>
+            <td><span class="badge" :class="poBadge(po.status)">{{ po.status }}</span></td>
+            <td><div class="actions-col"><button v-if="po.status==='Draft'" class="btn btn-primary btn-sm" @click="updatePOStatus(po.id,'Sent')">Send</button><button v-if="po.status==='Sent'" class="btn btn-success btn-sm" @click="updatePOStatus(po.id,'Received')">Receive</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('purchaseOrders',po.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='employees'">
+        <div class="card-header" style="background:#fff;border-radius:12px 12px 0 0;border:1px solid #e2e8f0;border-bottom:none">
+          <span class="card-title">Employees</span><button class="btn btn-primary btn-sm" @click="openForm('employee')">+ Add Employee</button>
+        </div>
+        <div class="card" style="border-radius:0 0 12px 12px"><table>
+          <thead><tr><th>EMP#</th><th>Name</th><th>Title</th><th>Dept</th><th>Type</th><th class="text-right">Salary/Rate</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody><tr v-for="emp in filteredEmployees" :key="emp.id">
+            <td class="font-semibold text-xs" style="color:#0891b2">{{ emp.id }}</td><td class="font-semibold">{{ emp.name }}</td>
+            <td>{{ emp.title }}</td><td>{{ emp.dept }}</td><td>{{ emp.type }}</td>
+            <td class="text-right">{{ emp.type==='Hourly' ? fmt(emp.rate)+'/hr' : fmt(emp.salary)+'/yr' }}</td>
+            <td><span class="badge" :class="emp.active?'badge-green':'badge-red'">{{ emp.active?'Active':'Inactive' }}</span></td>
+            <td><div class="actions-col"><button class="btn btn-ghost btn-sm btn-icon" @click="editItem('employee',emp)">✎</button><button class="btn btn-danger btn-sm btn-icon" @click="deleteItem('employees',emp.id)">✕</button></div></td>
+          </tr></tbody>
+        </table></div>
+      </div>
+
+      <div v-if="page==='payroll'">
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="kpi-card"><div class="kpi-label">Monthly Gross</div><div class="kpi-value kpi-blue">{{ fmt(monthlyGross) }}</div><div class="kpi-sub">{{ employees.filter(e=>e.active).length }} active</div></div>
+          <div class="kpi-card"><div class="kpi-label">Federal Tax (20%)</div><div class="kpi-value kpi-red">{{ fmt(monthlyGross*0.20) }}</div></div>
+          <div class="kpi-card"><div class="kpi-label">State Tax (5%)</div><div class="kpi-value kpi-red">{{ fmt(monthlyGross*0.05) }}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Net Payroll</div><div class="kpi-value kpi-green">{{ fmt(monthlyGross*0.7355) }}</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Payroll Runs</span><button class="btn btn-success btn-sm" @click="runPayroll">▶ Run Payroll</button></div>
+          <table><thead><tr><th>Run #</th><th>Period</th><th>Date</th><th class="text-right">Gross</th><th class="text-right">Fed Tax</th><th class="text-right">State</th><th class="text-right">SS+Med</th><th class="text-right">Net</th><th>Status</th></tr></thead>
+          <tbody><tr v-for="pr in payrollRuns" :key="pr.id">
+            <td class="font-semibold" style="color:#0891b2">{{ pr.id }}</td><td>{{ pr.period }}</td><td>{{ pr.runDate }}</td>
+            <td class="text-right">{{ fmt(pr.gross) }}</td><td class="text-right" style="color:#dc2626">{{ fmt(pr.fedTax) }}</td>
+            <td class="text-right" style="color:#dc2626">{{ fmt(pr.stateTax) }}</td><td class="text-right" style="color:#dc2626">{{ fmt(pr.ssMed) }}</td>
+            <td class="text-right font-bold" style="color:#16a34a">{{ fmt(pr.net) }}</td>
+            <td><span class="badge" :class="pr.status==='Processed'?'badge-green':'badge-yellow'">{{ pr.status }}</span></td>
+          </tr></tbody></table>
+        </div>
+        <div class="card"><div class="card-header"><span class="card-title">Payroll Detail</span></div>
+          <table><thead><tr><th>Employee</th><th>Type</th><th class="text-right">Gross</th><th class="text-right">Fed</th><th class="text-right">State</th><th class="text-right">SS</th><th class="text-right">Med</th><th class="text-right">Net</th></tr></thead>
+          <tbody><tr v-for="emp in employees.filter(e=>e.active)" :key="emp.id">
+            <td class="font-semibold">{{ emp.name }}</td><td>{{ emp.type }}</td>
+            <td class="text-right">{{ fmt(empMonthlyGross(emp)) }}</td>
+            <td class="text-right" style="color:#dc2626">{{ fmt(empMonthlyGross(emp)*0.20) }}</td>
+            <td class="text-right" style="color:#dc2626">{{ fmt(empMonthlyGross(emp)*0.05) }}</td>
+            <td class="text-right" style="color:#dc2626">{{ fmt(empMonthlyGross(emp)*0.062) }}</td>
+            <td class="text-right" style="color:#dc2626">{{ fmt(empMonthlyGross(emp)*0.0145) }}</td>
+            <td class="text-right font-bold" style="color:#16a34a">{{ fmt(empMonthlyGross(emp)*0.7355) }}</td>
+          </tr></tbody>
+          <tfoot><tr class="section-total"><td colspan="2">TOTAL</td><td class="text-right">{{ fmt(monthlyGross) }}</td><td class="text-right">{{ fmt(monthlyGross*0.20) }}</td><td class="text-right">{{ fmt(monthlyGross*0.05) }}</td><td class="text-right">{{ fmt(monthlyGross*0.062) }}</td><td class="text-right">{{ fmt(monthlyGross*0.0145) }}</td><td class="text-right">{{ fmt(monthlyGross*0.7355) }}</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div v-if="page==='reports'">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+          <div class="card" style="cursor:pointer" @click="reportView='pl'" :style="reportView==='pl'?'border-color:#3b82f6':''"><div class="p-4"><div style="font-size:2rem">📊</div><div class="font-semibold mt-4">Profit &amp; Loss</div><div class="text-xs text-muted">Income Statement</div></div></div>
+          <div class="card" style="cursor:pointer" @click="reportView='bs'" :style="reportView==='bs'?'border-color:#3b82f6':''"><div class="p-4"><div style="font-size:2rem">🏦</div><div class="font-semibold mt-4">Balance Sheet</div><div class="text-xs text-muted">Assets, Liab &amp; Equity</div></div></div>
+          <div class="card" style="cursor:pointer" @click="reportView='tb'" :style="reportView==='tb'?'border-color:#3b82f6':''"><div class="p-4"><div style="font-size:2rem">⚖️</div><div class="font-semibold mt-4">Trial Balance</div><div class="text-xs text-muted">Debit/Credit Summary</div></div></div>
+        </div>
+        <div v-if="reportView==='pl'" class="card"><div class="card-header"><span class="card-title">Profit &amp; Loss</span></div>
+          <div style="padding:24px;max-width:600px">
+            <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">REVENUE</div>
+            <div v-for="acc in accounts.filter(a=>a.type==='Revenue')" :key="acc.id" class="detail-row"><span>{{ acc.name }}</span><span class="font-semibold" style="color:#16a34a">{{ fmt(acc.balance) }}</span></div>
+            <div class="detail-row" style="border-top:2px solid #e2e8f0;padding-top:12px"><span class="font-bold">Total Revenue</span><span class="font-bold kpi-green">{{ fmt(totalRevenue) }}</span></div>
+            <div style="font-size:1.1rem;font-weight:700;margin:24px 0 16px">EXPENSES</div>
+            <div v-for="acc in accounts.filter(a=>a.type==='Expense')" :key="acc.id" class="detail-row"><span>{{ acc.name }}</span><span class="font-semibold" style="color:#dc2626">{{ fmt(acc.balance) }}</span></div>
+            <div class="detail-row" style="border-top:2px solid #e2e8f0;padding-top:12px"><span class="font-bold">Total Expenses</span><span class="font-bold kpi-red">{{ fmt(totalExpenses) }}</span></div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;margin-top:20px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:700">NET INCOME</span><span style="font-weight:800;font-size:1.3rem" :style="netIncome>=0?'color:#16a34a':'color:#dc2626'">{{ fmt(netIncome) }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="reportView==='bs'" class="card"><div class="card-header"><span class="card-title">Balance Sheet</span></div>
+          <div style="padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:40px">
+            <div><div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">ASSETS</div>
+              <div v-for="acc in accounts.filter(a=>a.type==='Asset')" :key="acc.id" class="detail-row"><span>{{ acc.name }}</span><span class="font-semibold" style="color:#1d4ed8">{{ fmt(acc.balance) }}</span></div>
+              <div class="detail-row" style="border-top:2px solid #e2e8f0;padding-top:12px"><span class="font-bold">Total Assets</span><span class="font-bold kpi-blue">{{ fmt(totalAssets) }}</span></div>
+            </div>
+            <div><div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">LIABILITIES &amp; EQUITY</div>
+              <div v-for="acc in accounts.filter(a=>a.type==='Liability')" :key="acc.id" class="detail-row"><span>{{ acc.name }}</span><span class="font-semibold" style="color:#7c3aed">{{ fmt(acc.balance) }}</span></div>
+              <div class="detail-row" style="border-top:2px solid #e2e8f0;padding-top:8px"><span class="font-bold">Total Liabilities</span><span class="font-bold kpi-purple">{{ fmt(totalLiabilities) }}</span></div>
+              <div style="margin-top:16px"><div v-for="acc in accounts.filter(a=>a.type==='Equity')" :key="acc.id" class="detail-row"><span>{{ acc.name }}</span><span>{{ fmt(acc.balance) }}</span></div>
+              <div class="detail-row" style="color:#16a34a"><span>Net Income</span><span>{{ fmt(netIncome) }}</span></div>
+              <div class="detail-row" style="border-top:2px solid #e2e8f0;padding-top:8px"><span class="font-bold">Total Equity</span><span class="font-bold" style="color:#0891b2">{{ fmt(totalEquity+netIncome) }}</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div v-if="reportView==='tb'" class="card"><div class="card-header"><span class="card-title">Trial Balance</span><span :class="trialDebit===trialCredit?'balanced':'unbalanced'">{{ trialDebit===trialCredit?'✓ Balanced':'✗ Not Balanced' }}</span></div>
+          <table><thead><tr><th>Code</th><th>Account</th><th>Type</th><th class="text-right debit-col">Debit</th><th class="text-right credit-col">Credit</th></tr></thead>
+          <tbody><tr v-for="acc in accounts" :key="acc.id"><td>{{ acc.code }}</td><td>{{ acc.name }}</td><td>{{ acc.type }}</td><td class="text-right debit-col">{{ isDebitNormal(acc.type)?fmt(acc.balance):'—' }}</td><td class="text-right credit-col">{{ !isDebitNormal(acc.type)?fmt(acc.balance):'—' }}</td></tr></tbody>
+          <tfoot><tr class="section-total"><td colspan="3">TOTALS</td><td class="text-right debit-col">{{ fmt(trialDebit) }}</td><td class="text-right credit-col">{{ fmt(trialCredit) }}</td></tr></tfoot>
+        </table></div>
+      </div>
+
+    </div>
+                            </div>
+
+  <div class="modal-overlay" v-if="modal" @click.self="closeModal">
+    <div class="modal">
+      <div class="modal-header"><h3>{{ modal.title }}</h3><button class="close-btn" @click="closeModal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div class="modal-body">
+        <div v-if="modal.type==='account'" class="form-grid">
+          <div class="form-group"><label>Code</label><input v-model="form.code" /></div>
+          <div class="form-group"><label>Name</label><input v-model="form.name" /></div>
+          <div class="form-group"><label>Type</label><select v-model="form.type"><option>Asset</option><option>Liability</option><option>Equity</option><option>Revenue</option><option>Expense</option></select></div>
+          <div class="form-group"><label>Sub-Type</label><input v-model="form.subtype" /></div>
+          <div class="form-group"><label>Balance ($)</label><input v-model.number="form.balance" type="number" /></div>
+        </div>
+        <div v-if="modal.type==='customer'" class="form-grid">
+          <div class="form-group"><label>Name</label><input v-model="form.name" /></div>
+          <div class="form-group"><label>Email</label><input v-model="form.email" type="email" /></div>
+          <div class="form-group"><label>Phone</label><input v-model="form.phone" /></div>
+          <div class="form-group"><label>City</label><input v-model="form.city" /></div>
+          <div class="form-group full"><label>Address</label><input v-model="form.address" /></div>
+        </div>
+        <div v-if="modal.type==='vendor'" class="form-grid">
+          <div class="form-group"><label>Name</label><input v-model="form.name" /></div>
+          <div class="form-group"><label>Category</label><input v-model="form.category" /></div>
+          <div class="form-group"><label>Email</label><input v-model="form.email" /></div>
+          <div class="form-group"><label>Phone</label><input v-model="form.phone" /></div>
+        </div>
+        <div v-if="modal.type==='invoice'">
+          <div class="form-grid mb-4">
+            <div class="form-group"><label>Customer</label><select v-model="form.customer"><option v-for="c in customers" :key="c.id">{{ c.name }}</option></select></div>
+            <div class="form-group"><label>Date</label><input v-model="form.date" type="date" /></div>
+            <div class="form-group"><label>Due Date</label><input v-model="form.due" type="date" /></div>
+            <div class="form-group"><label>Status</label><select v-model="form.status"><option>Draft</option><option>Sent</option><option>Paid</option><option>Overdue</option></select></div>
+          </div>
+          <div class="card" style="margin-bottom:0"><div class="card-header"><span class="card-title">Line Items</span><button class="btn btn-primary btn-sm" @click="addInvLine">+ Add Line</button></div>
+            <table><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead>
+            <tbody><tr v-for="(line,idx) in form.lines" :key="idx">
+              <td><input v-model="line.desc" style="width:100%" /></td>
+              <td><input v-model.number="line.qty" type="number" style="width:70px" @input="calcItem(line)" /></td>
+              <td><input v-model.number="line.rate" type="number" style="width:90px" @input="calcItem(line)" /></td>
+              <td class="text-right">{{ fmt(line.amount||0) }}</td>
+              <td><button class="btn btn-danger btn-sm btn-icon" @click="form.lines.splice(idx,1)">✕</button></td>
+            </tr></tbody>
+            <tfoot><tr class="section-total"><td colspan="3">Subtotal</td><td class="text-right">{{ fmt(form.lines.reduce((s,l)=>s+(l.amount||0),0)) }}</td><td></td></tr></tfoot>
+          </table></div>
+        </div>
+        <div v-if="modal.type==='bill'" class="form-grid">
+          <div class="form-group"><label>Vendor</label><select v-model="form.vendor"><option v-for="v in vendors" :key="v.id">{{ v.name }}</option></select></div>
+          <div class="form-group"><label>Date</label><input v-model="form.date" type="date" /></div>
+          <div class="form-group"><label>Due Date</label><input v-model="form.due" type="date" /></div>
+          <div class="form-group"><label>Amount ($)</label><input v-model.number="form.amount" type="number" /></div>
+          <div class="form-group"><label>Status</label><select v-model="form.status"><option>Pending</option><option>Paid</option><option>Overdue</option></select></div>
+          <div class="form-group full"><label>Description</label><textarea v-model="form.description"></textarea></div>
+        </div>
+        <div v-if="modal.type==='inventory'" class="form-grid">
+          <div class="form-group"><label>SKU</label><input v-model="form.sku" /></div>
+          <div class="form-group"><label>Name</label><input v-model="form.name" /></div>
+          <div class="form-group"><label>Category</label><input v-model="form.category" /></div>
+          <div class="form-group"><label>Quantity</label><input v-model.number="form.qty" type="number" /></div>
+          <div class="form-group"><label>Unit Cost ($)</label><input v-model.number="form.cost" type="number" /></div>
+          <div class="form-group"><label>Reorder Level</label><input v-model.number="form.reorder" type="number" /></div>
+        </div>
+        <div v-if="modal.type==='po'" class="form-grid">
+          <div class="form-group"><label>Vendor</label><select v-model="form.vendor"><option v-for="v in vendors" :key="v.id">{{ v.name }}</option></select></div>
+          <div class="form-group"><label>Order Date</label><input v-model="form.date" type="date" /></div>
+          <div class="form-group"><label>Expected</label><input v-model="form.expected" type="date" /></div>
+          <div class="form-group"><label>Total ($)</label><input v-model.number="form.total" type="number" /></div>
+          <div class="form-group full"><label>Description</label><textarea v-model="form.description"></textarea></div>
+        </div>
+        <div v-if="modal.type==='employee'" class="form-grid">
+          <div class="form-group"><label>Name</label><input v-model="form.name" /></div>
+          <div class="form-group"><label>Title</label><input v-model="form.title" /></div>
+          <div class="form-group"><label>Department</label><input v-model="form.dept" /></div>
+          <div class="form-group"><label>Type</label><select v-model="form.type"><option>Salaried</option><option>Hourly</option></select></div>
+          <div class="form-group" v-if="form.type==='Salaried'"><label>Annual Salary ($)</label><input v-model.number="form.salary" type="number" /></div>
+          <div class="form-group" v-if="form.type==='Hourly'"><label>Hourly Rate ($)</label><input v-model.number="form.rate" type="number" /></div>
+          <div class="form-group"><label>Email</label><input v-model="form.email" type="email" /></div>
+          <div class="form-group"><label>Status</label><select v-model="form.active"><option :value="true">Active</option><option :value="false">Inactive</option></select></div>
+        </div>
+        <div v-if="modal.type==='journal'">
+          <div class="form-grid mb-4">
+            <div class="form-group"><label>Date</label><input v-model="form.date" type="date" /></div>
+            <div class="form-group"><label>Reference</label><input v-model="form.ref" /></div>
+            <div class="form-group full"><label>Description</label><input v-model="form.description" /></div>
+          </div>
+          <div class="card" style="margin-bottom:12px"><div class="card-header"><span class="card-title">Lines</span><button class="btn btn-primary btn-sm" @click="addJELine">+ Add Line</button></div>
+            <table><thead><tr><th>Account</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th></th></tr></thead>
+            <tbody><tr v-for="(line,idx) in form.lines" :key="idx">
+              <td><select v-model="line.account" style="width:100%"><option v-for="a in accounts" :key="a.id">{{ a.name }}</option></select></td>
+              <td><input v-model.number="line.debit" type="number" style="width:110px;text-align:right" /></td>
+              <td><input v-model.number="line.credit" type="number" style="width:110px;text-align:right" /></td>
+              <td><button class="btn btn-danger btn-sm btn-icon" @click="form.lines.splice(idx,1)">✕</button></td>
+            </tr></tbody>
+            <tfoot><tr class="section-total"><td>Balance</td><td class="text-right debit-col">{{ fmt(form.lines.reduce((s,l)=>s+(+l.debit||0),0)) }}</td><td class="text-right credit-col">{{ fmt(form.lines.reduce((s,l)=>s+(+l.credit||0),0)) }}</td><td><span :class="form.lines.reduce((s,l)=>s+(+l.debit||0),0)===form.lines.reduce((s,l)=>s+(+l.credit||0),0)?'balanced':'unbalanced'">✓</span></td></tr></tfoot>
+          </table></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-ghost" @click="closeModal">Cancel</button><button class="btn btn-primary" @click="saveForm">{{ modal.editing?'Update':'Save' }}</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" v-if="viewItem" @click.self="viewItem=null">
+    <div class="modal modal-lg">
+      <div class="modal-header"><h3>{{ viewItem._type==='je'?'Journal Entry: '+viewItem.id:viewItem._type==='invoice'?'Invoice: '+viewItem.id:'Bill: '+viewItem.id }}</h3><button class="close-btn" @click="viewItem=null"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div class="modal-body">
+        <div v-if="viewItem._type==='je'">
+          <div class="form-grid mb-4"><div><div class="text-xs text-muted">Date</div><div class="font-semibold">{{ viewItem.date }}</div></div><div><div class="text-xs text-muted">Status</div><span class="badge" :class="viewItem.posted?'badge-green':'badge-yellow'">{{ viewItem.posted?'Posted':'Draft' }}</span></div><div class="full"><div class="text-xs text-muted">Description</div><div>{{ viewItem.description }}</div></div></div>
+          <table><thead><tr><th>Account</th><th class="text-right">Debit</th><th class="text-right">Credit</th></tr></thead>
+          <tbody><tr v-for="(line,idx) in viewItem.lines" :key="idx"><td>{{ line.account }}</td><td class="text-right debit-col">{{ line.debit?fmt(line.debit):'—' }}</td><td class="text-right credit-col">{{ line.credit?fmt(line.credit):'—' }}</td></tr></tbody>
+          <tfoot><tr class="section-total"><td>Total</td><td class="text-right debit-col">{{ fmt(viewItem.lines.reduce((s,l)=>s+(l.debit||0),0)) }}</td><td class="text-right credit-col">{{ fmt(viewItem.lines.reduce((s,l)=>s+(l.credit||0),0)) }}</td></tr></tfoot></table>
+        </div>
+        <div v-if="viewItem._type==='invoice'">
+          <div class="form-grid mb-4"><div><div class="text-xs text-muted">Customer</div><div class="font-semibold">{{ viewItem.customer }}</div></div><div><span class="badge" :class="badgeClass(viewItem.status)">{{ viewItem.status }}</span></div><div><div class="text-xs text-muted">Date</div><div>{{ viewItem.date }}</div></div><div><div class="text-xs text-muted">Due</div><div>{{ viewItem.due }}</div></div></div>
+          <table><thead><tr><th>Description</th><th class="text-right">Qty</th><th class="text-right">Rate</th><th class="text-right">Amount</th></tr></thead>
+          <tbody><tr v-for="(line,idx) in viewItem.lines" :key="idx"><td>{{ line.desc }}</td><td class="text-right">{{ line.qty }}</td><td class="text-right">{{ fmt(line.rate) }}</td><td class="text-right font-semibold">{{ fmt(line.amount) }}</td></tr></tbody>
+          <tfoot><tr class="section-total"><td colspan="3">TOTAL</td><td class="text-right">{{ fmt(viewItem.total) }}</td></tr></tfoot></table>
+        </div>
+        <div v-if="viewItem._type==='bill'" class="form-grid">
+          <div><div class="text-xs text-muted">Vendor</div><div class="font-semibold">{{ viewItem.vendor }}</div></div>
+          <div><span class="badge" :class="badgeClass(viewItem.status)">{{ viewItem.status }}</span></div>
+          <div><div class="text-xs text-muted">Amount</div><div class="font-bold kpi-purple">{{ fmt(viewItem.amount) }}</div></div>
+          <div><div class="text-xs text-muted">Due</div><div>{{ viewItem.due }}</div></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-ghost" @click="viewItem=null">Close</button></div>
+    </div>
+  </div>
+
+              </div>
+<script>
+const { createApp } = Vue;
+createApp({
+  data() { return {
+    page: 'dashboard', search: '', modal: null, form: {}, viewItem: null, reportView: 'pl',
+    navGroups: [
+      { label:'Overview', items:[{ page:'dashboard', label:'Dashboard', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' }]},
+      { label:'General Ledger', items:[
+        { page:'coa', label:'Chart of Accounts', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>' },
+        { page:'journal', label:'Journal Entries', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+      ]},
+      { label:'Accounts Receivable', items:[
+        { page:'customers', label:'Customers', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>' },
+        { page:'invoices', label:'Invoices', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>' },
+      ]},
+      { label:'Accounts Payable', items:[
+        { page:'vendors', label:'Vendors', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>' },
+        { page:'bills', label:'Bills', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' },
+      ]},
+      { label:'Inventory', items:[
+        { page:'inventory', label:'Inventory Items', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>' },
+        { page:'po', label:'Purchase Orders', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' },
+      ]},
+      { label:'HR & Payroll', items:[
+        { page:'employees', label:'Employees', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.2 20a7 7 0 0 1 13.6 0"/></svg>' },
+        { page:'payroll', label:'Payroll', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' },
+      ]},
+      { label:'Reports', items:[{ page:'reports', label:'Financial Reports', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' }]},
+    ],
+    accounts: [
+      {id:1,code:'1010',name:'Cash',type:'Asset',subtype:'Current Asset',balance:85000},
+      {id:2,code:'1020',name:'Accounts Receivable',type:'Asset',subtype:'Current Asset',balance:42000},
+      {id:3,code:'1030',name:'Inventory',type:'Asset',subtype:'Current Asset',balance:28500},
+      {id:4,code:'1040',name:'Prepaid Expenses',type:'Asset',subtype:'Current Asset',balance:4200},
+      {id:5,code:'1510',name:'Equipment',type:'Asset',subtype:'Fixed Asset',balance:65000},
+      {id:6,code:'1520',name:'Accum. Depreciation',type:'Asset',subtype:'Fixed Asset',balance:-12000},
+      {id:7,code:'2010',name:'Accounts Payable',type:'Liability',subtype:'Current Liability',balance:18500},
+      {id:8,code:'2020',name:'Accrued Liabilities',type:'Liability',subtype:'Current Liability',balance:6800},
+      {id:9,code:'2030',name:'Payroll Taxes Payable',type:'Liability',subtype:'Current Liability',balance:3200},
+      {id:10,code:'2510',name:'Notes Payable',type:'Liability',subtype:'Long-term',balance:45000},
+      {id:11,code:'3010',name:'Owner Capital',type:'Equity',subtype:'Equity',balance:100000},
+      {id:12,code:'3020',name:'Retained Earnings',type:'Equity',subtype:'Equity',balance:62200},
+      {id:13,code:'4010',name:'Sales Revenue',type:'Revenue',subtype:'Operating',balance:125000},
+      {id:14,code:'4020',name:'Service Revenue',type:'Revenue',subtype:'Operating',balance:38500},
+      {id:15,code:'4030',name:'Other Income',type:'Revenue',subtype:'Non-operating',balance:5200},
+      {id:16,code:'5010',name:'Cost of Goods Sold',type:'Expense',subtype:'COGS',balance:72000},
+      {id:17,code:'5020',name:'Salaries Expense',type:'Expense',subtype:'Operating',balance:48000},
+      {id:18,code:'5030',name:'Rent Expense',type:'Expense',subtype:'Operating',balance:18000},
+      {id:19,code:'5040',name:'Utilities',type:'Expense',subtype:'Operating',balance:4200},
+      {id:20,code:'5050',name:'Marketing',type:'Expense',subtype:'Operating',balance:8500},
+      {id:21,code:'5060',name:'Depreciation Expense',type:'Expense',subtype:'Operating',balance:6000},
+      {id:22,code:'5070',name:'Other Expenses',type:'Expense',subtype:'Operating',balance:3800},
+    ],
+    journalEntries: [
+      {id:'JE-001',date:'2026-01-15',description:'January sales recognition',posted:true,lines:[{account:'Accounts Receivable',debit:15000,credit:0},{account:'Sales Revenue',debit:0,credit:15000}]},
+      {id:'JE-002',date:'2026-01-31',description:'January payroll',posted:true,lines:[{account:'Salaries Expense',debit:12000,credit:0},{account:'Cash',debit:0,credit:9200},{account:'Payroll Taxes Payable',debit:0,credit:2800}]},
+      {id:'JE-003',date:'2026-02-01',description:'Rent payment February',posted:true,lines:[{account:'Rent Expense',debit:4500,credit:0},{account:'Cash',debit:0,credit:4500}]},
+      {id:'JE-004',date:'2026-02-15',description:'Inventory purchase on account',posted:true,lines:[{account:'Inventory',debit:8500,credit:0},{account:'Accounts Payable',debit:0,credit:8500}]},
+      {id:'JE-005',date:'2026-03-01',description:'Equipment depreciation Q1',posted:false,lines:[{account:'Depreciation Expense',debit:1500,credit:0},{account:'Accum. Depreciation',debit:0,credit:1500}]},
+    ],
+    customers: [
+      {id:1,name:'Apex Retail Solutions',email:'billing@apexretail.com',phone:'(212)555-0101',city:'New York',address:'100 5th Ave',balance:12000},
+      {id:2,name:'BlueLine Distributors',email:'ap@bluelinedist.com',phone:'(310)555-0202',city:'Los Angeles',address:'500 Sunset Blvd',balance:8500},
+      {id:3,name:'Carter & Associates',email:'finance@carterassoc.com',phone:'(312)555-0303',city:'Chicago',address:'200 N Lake Shore',balance:4200},
+      {id:4,name:'Delta Tech Corp',email:'invoices@deltatech.io',phone:'(415)555-0404',city:'San Francisco',address:'1 Market St',balance:17500},
+      {id:5,name:'Echo Manufacturing',email:'payables@echomfg.com',phone:'(713)555-0505',city:'Houston',address:'400 Texas Ave',balance:0},
+    ],
+    invoices: [
+      {id:'INV-001',customer:'Apex Retail Solutions',date:'2026-01-10',due:'2026-02-10',status:'Paid',total:12000,lines:[{desc:'Product Bundle A',qty:10,rate:800,amount:8000},{desc:'Installation',qty:4,rate:1000,amount:4000}]},
+      {id:'INV-002',customer:'BlueLine Distributors',date:'2026-02-01',due:'2026-03-01',status:'Sent',total:8500,lines:[{desc:'Wholesale Goods',qty:50,rate:150,amount:7500},{desc:'Delivery',qty:1,rate:1000,amount:1000}]},
+      {id:'INV-003',customer:'Delta Tech Corp',date:'2026-02-15',due:'2026-03-15',status:'Overdue',total:17500,lines:[{desc:'Software License',qty:5,rate:2500,amount:12500},{desc:'Support Q1',qty:1,rate:5000,amount:5000}]},
+      {id:'INV-004',customer:'Carter & Associates',date:'2026-03-01',due:'2026-04-01',status:'Draft',total:4200,lines:[{desc:'Consulting',qty:7,rate:600,amount:4200}]},
+    ],
+    vendors: [
+      {id:1,name:'Global Supply Co.',email:'orders@globalsupply.com',phone:'(800)555-1001',category:'Supplier',address:'1000 Industrial Blvd',balance:8500},
+      {id:2,name:'Metro Office Supplies',email:'billing@metroos.com',phone:'(800)555-1002',category:'Supplies',address:'250 Commerce Dr',balance:1200},
+      {id:3,name:'TechCloud Inc.',email:'invoices@techcloud.com',phone:'(800)555-1003',category:'Software',address:'888 Silicon Way',balance:4500},
+      {id:4,name:'Premier Logistics',email:'billing@premierlog.com',phone:'(800)555-1004',category:'Logistics',address:'500 Freight Rd',balance:3800},
+      {id:5,name:'City Power & Gas',email:'accounts@citypg.com',phone:'(800)555-1005',category:'Utilities',address:'1 Utility Center',balance:500},
+    ],
+    bills: [
+      {id:'BILL-001',vendor:'Global Supply Co.',date:'2026-01-20',due:'2026-02-20',amount:8500,status:'Paid',description:'Raw materials January'},
+      {id:'BILL-002',vendor:'TechCloud Inc.',date:'2026-02-01',due:'2026-03-01',amount:4500,status:'Paid',description:'Annual software subscription'},
+      {id:'BILL-003',vendor:'Premier Logistics',date:'2026-02-10',due:'2026-03-10',amount:3800,status:'Pending',description:'Freight Q1'},
+      {id:'BILL-004',vendor:'Metro Office Supplies',date:'2026-03-05',due:'2026-04-05',amount:1200,status:'Pending',description:'Office supplies'},
+    ],
+    purchaseOrders: [
+      {id:'PO-001',vendor:'Global Supply Co.',date:'2026-01-05',expected:'2026-01-15',total:12000,status:'Received',description:'Q1 raw materials'},
+      {id:'PO-002',vendor:'Premier Logistics',date:'2026-02-20',expected:'2026-03-01',total:5500,status:'Sent',description:'Express delivery'},
+      {id:'PO-003',vendor:'Metro Office Supplies',date:'2026-03-10',expected:'2026-03-20',total:1800,status:'Draft',description:'Office furniture'},
+    ],
+    inventory: [
+      {id:1,sku:'SKU-1001',name:'Widget Pro X',category:'Electronics',qty:145,cost:89.99,reorder:50},
+      {id:2,sku:'SKU-1002',name:'Connector Set A',category:'Hardware',qty:28,cost:24.50,reorder:30},
+      {id:3,sku:'SKU-1003',name:'Industrial Cable',category:'Hardware',qty:312,cost:12.75,reorder:100},
+      {id:4,sku:'SKU-1004',name:'Smart Sensor V2',category:'Electronics',qty:18,cost:149.00,reorder:25},
+      {id:5,sku:'SKU-1005',name:'Mounting Bracket',category:'Hardware',qty:89,cost:8.99,reorder:40},
+      {id:6,sku:'SKU-1006',name:'Power Module 500W',category:'Electronics',qty:42,cost:220.00,reorder:20},
+    ],
+    employees: [
+      {id:'EMP-001',name:'Sarah Mitchell',title:'CEO',dept:'Executive',type:'Salaried',salary:120000,rate:0,email:'sarah@co.com',startDate:'2020-01-15',active:true},
+      {id:'EMP-002',name:'James Chen',title:'CFO',dept:'Finance',type:'Salaried',salary:95000,rate:0,email:'james@co.com',startDate:'2020-03-01',active:true},
+      {id:'EMP-003',name:'Maria Lopez',title:'Sales Manager',dept:'Sales',type:'Salaried',salary:72000,rate:0,email:'maria@co.com',startDate:'2021-06-01',active:true},
+      {id:'EMP-004',name:'David Patel',title:'Software Engineer',dept:'IT',type:'Salaried',salary:88000,rate:0,email:'david@co.com',startDate:'2022-01-10',active:true},
+      {id:'EMP-005',name:'Lisa Nguyen',title:'Warehouse Lead',dept:'Operations',type:'Hourly',salary:0,rate:28,email:'lisa@co.com',startDate:'2021-09-01',active:true},
+      {id:'EMP-006',name:'Tom Bradley',title:'Sales Rep',dept:'Sales',type:'Hourly',salary:0,rate:22,email:'tom@co.com',startDate:'2023-03-15',active:false},
+    ],
+    payrollRuns: [
+      {id:'PR-001',period:'January 2026',runDate:'2026-01-31',gross:39600,fedTax:7920,stateTax:1980,ssMed:2920,net:26780,status:'Processed'},
+      {id:'PR-002',period:'February 2026',runDate:'2026-02-28',gross:39600,fedTax:7920,stateTax:1980,ssMed:2920,net:26780,status:'Processed'},
+      {id:'PR-003',period:'March 2026',runDate:'2026-03-31',gross:39600,fedTax:7920,stateTax:1980,ssMed:2920,net:26780,status:'Processed'},
+    ],
+    nextId:{account:23,customer:6,vendor:6,invoice:5,bill:5,inventory:7,employee:7,po:4,je:6,payroll:4},
+  };},
+  computed: {
+    pageTitle(){const m={dashboard:'Dashboard',coa:'Chart of Accounts',journal:'Journal Entries',customers:'Customers',invoices:'Invoices',vendors:'Vendors',bills:'Bills',inventory:'Inventory',po:'Purchase Orders',employees:'Employees',payroll:'Payroll',reports:'Financial Reports'};return m[this.page]||'KukBook';},
+    groupedAccounts(){const g={};for(const a of this.filteredAccounts){if(!g[a.type])g[a.type]=[];g[a.type].push(a);}return g;},
+    filteredAccounts(){const s=this.search.toLowerCase();return s?this.accounts.filter(a=>a.name.toLowerCase().includes(s)||a.code.includes(s)):this.accounts;},
+    filteredJEs(){const s=this.search.toLowerCase();return s?this.journalEntries.filter(j=>j.description.toLowerCase().includes(s)||j.id.toLowerCase().includes(s)):this.journalEntries;},
+    filteredCustomers(){const s=this.search.toLowerCase();return s?this.customers.filter(c=>c.name.toLowerCase().includes(s)):this.customers;},
+    filteredInvoices(){const s=this.search.toLowerCase();return s?this.invoices.filter(i=>i.customer.toLowerCase().includes(s)||i.id.toLowerCase().includes(s)):this.invoices;},
+    filteredVendors(){const s=this.search.toLowerCase();return s?this.vendors.filter(v=>v.name.toLowerCase().includes(s)):this.vendors;},
+    filteredBills(){const s=this.search.toLowerCase();return s?this.bills.filter(b=>b.vendor.toLowerCase().includes(s)||b.id.toLowerCase().includes(s)):this.bills;},
+    filteredInventory(){const s=this.search.toLowerCase();return s?this.inventory.filter(i=>i.name.toLowerCase().includes(s)||i.sku.toLowerCase().includes(s)):this.inventory;},
+    filteredPOs(){const s=this.search.toLowerCase();return s?this.purchaseOrders.filter(p=>p.vendor.toLowerCase().includes(s)||p.id.toLowerCase().includes(s)):this.purchaseOrders;},
+    filteredEmployees(){const s=this.search.toLowerCase();return s?this.employees.filter(e=>e.name.toLowerCase().includes(s)):this.employees;},
+    totalRevenue(){return this.accounts.filter(a=>a.type==='Revenue').reduce((s,a)=>s+a.balance,0);},
+    totalExpenses(){return this.accounts.filter(a=>a.type==='Expense').reduce((s,a)=>s+a.balance,0);},
+    netIncome(){return this.totalRevenue-this.totalExpenses;},
+    totalAssets(){return this.accounts.filter(a=>a.type==='Asset').reduce((s,a)=>s+a.balance,0);},
+    totalLiabilities(){return this.accounts.filter(a=>a.type==='Liability').reduce((s,a)=>s+a.balance,0);},
+    totalEquity(){return this.accounts.filter(a=>a.type==='Equity').reduce((s,a)=>s+a.balance,0);},
+    trialDebit(){return this.accounts.filter(a=>this.isDebitNormal(a.type)).reduce((s,a)=>s+a.balance,0);},
+    trialCredit(){return this.accounts.filter(a=>!this.isDebitNormal(a.type)).reduce((s,a)=>s+a.balance,0);},
+    lowStockItems(){return this.inventory.filter(i=>i.qty<=i.reorder);},
+    monthlyGross(){return this.employees.filter(e=>e.active).reduce((s,e)=>s+this.empMonthlyGross(e),0);},
+    kpis(){return[
+      {label:'Total Revenue',value:this.totalRevenue,cls:'kpi-green',sub:'FY 2025-26'},
+      {label:'Net Income',value:this.netIncome,cls:this.netIncome>=0?'kpi-green':'kpi-red',sub:'P&L bottom line'},
+      {label:'Total Assets',value:this.totalAssets,cls:'kpi-blue',sub:'Balance sheet'},
+      {label:'AR Outstanding',value:this.invoices.filter(i=>i.status!=='Paid').reduce((s,i)=>s+i.total,0),cls:'kpi-blue',sub:'Unpaid invoices'},
+      {label:'AP Outstanding',value:this.bills.filter(b=>b.status==='Pending').reduce((s,b)=>s+b.amount,0),cls:'kpi-red',sub:'Bills due'},
+      {label:'Inventory Value',value:this.inventory.reduce((s,i)=>s+i.qty*i.cost,0),cls:'kpi-purple',sub:'On hand'},
+    ];},
+  },
+  methods: {
+    fmt(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2}).format(n||0);},
+    isDebitNormal(type){return['Asset','Expense'].includes(type);},
+    accTypeBadge(type){return{Asset:'badge-blue',Liability:'badge-purple',Equity:'badge-gray',Revenue:'badge-green',Expense:'badge-red'}[type]||'badge-gray';},
+    badgeClass(status){return{Paid:'badge-green',Posted:'badge-green',Sent:'badge-blue',Draft:'badge-gray',Pending:'badge-yellow',Overdue:'badge-red'}[status]||'badge-gray';},
+    poBadge(s){return{Draft:'badge-gray',Sent:'badge-blue',Received:'badge-green'}[s]||'badge-gray';},
+    empMonthlyGross(emp){return emp.type==='Salaried'?emp.salary/12:emp.rate*160;},
+    closeModal(){this.modal=null;this.form={};},
+    openForm(type){
+      const d={account:{code:'',name:'',type:'Asset',subtype:'',balance:0},customer:{name:'',email:'',phone:'',city:'',address:'',balance:0},vendor:{name:'',email:'',phone:'',category:'',address:'',balance:0},invoice:{customer:'',date:'',due:'',status:'Draft',lines:[{desc:'',qty:1,rate:0,amount:0}],total:0},bill:{vendor:'',date:'',due:'',amount:0,status:'Pending',description:''},inventory:{sku:'',name:'',category:'',qty:0,cost:0,reorder:10},po:{vendor:'',date:'',expected:'',total:0,status:'Draft',description:''},employee:{name:'',title:'',dept:'',type:'Salaried',salary:0,rate:0,email:'',startDate:'',active:true},journal:{date:'',description:'',ref:'',lines:[{account:'',debit:0,credit:0},{account:'',debit:0,credit:0}]}};
+      const t={account:'New Account',customer:'New Customer',vendor:'New Vendor',invoice:'New Invoice',bill:'New Bill',inventory:'New Item',po:'New PO',employee:'New Employee',journal:'New Journal Entry'};
+      this.form={...d[type]};
+      if(d[type].lines)this.form.lines=d[type].lines.map(l=>({...l}));
+      this.modal={type,title:t[type],editing:false};
+    },
+    editItem(type,item){
+      this.form={...item};
+      if(item.lines)this.form.lines=item.lines.map(l=>({...l}));
+      const t={account:'Edit Account',customer:'Edit Customer',vendor:'Edit Vendor',invoice:'Edit Invoice',bill:'Edit Bill',inventory:'Edit Item',po:'Edit PO',employee:'Edit Employee',journal:'Edit JE'};
+      this.modal={type,title:t[type],editing:true,id:item.id};
+    },
+    saveForm(){
+      const lm={account:'accounts',customer:'customers',vendor:'vendors',invoice:'invoices',bill:'bills',inventory:'inventory',po:'purchaseOrders',employee:'employees',journal:'journalEntries'};
+      const list=lm[this.modal.type];if(!list)return;
+      if(this.modal.type==='invoice')this.form.total=this.form.lines.reduce((s,l)=>s+(l.amount||0),0);
+      if(this.modal.editing){const idx=this[list].findIndex(x=>x.id===this.modal.id);if(idx>=0)this[list][idx]={...this.form};}
+      else{
+        const p={account:'ACC',customer:'CUST',vendor:'VEND',invoice:'INV',bill:'BILL',inventory:'ITM',po:'PO',employee:'EMP',journal:'JE'};
+        const k={account:'account',customer:'customer',vendor:'vendor',invoice:'invoice',bill:'bill',inventory:'inventory',po:'po',employee:'employee',journal:'je'};
+        const t=this.modal.type;const num=String(this.nextId[k[t]]||1).padStart(3,'0');
+        const newItem={...this.form,id:t==='account'||t==='inventory'?this.nextId[k[t]]:`${p[t]}-${num}`};
+        this[list].push(newItem);this.nextId[k[t]]=(this.nextId[k[t]]||1)+1;
+      }
+      this.closeModal();
+    },
+    deleteItem(list,id){if(!confirm('Delete this item?'))return;const idx=this[list].findIndex(x=>x.id===id);if(idx>=0)this[list].splice(idx,1);},
+    markInvPaid(id){const i=this.invoices.find(x=>x.id===id);if(i)i.status='Paid';},
+    markBillPaid(id){const b=this.bills.find(x=>x.id===id);if(b)b.status='Paid';},
+    updatePOStatus(id,s){const p=this.purchaseOrders.find(x=>x.id===id);if(p)p.status=s;},
+    calcItem(line){line.amount=(line.qty||0)*(line.rate||0);},
+    addInvLine(){this.form.lines.push({desc:'',qty:1,rate:0,amount:0});},
+    addJELine(){this.form.lines.push({account:'',debit:0,credit:0});},
+    viewEntry(je){this.viewItem={...je,lines:je.lines.map(l=>({...l})),_type:'je'};},
+    viewInvoice(inv){this.viewItem={...inv,lines:inv.lines.map(l=>({...l})),_type:'invoice'};},
+    viewBill(b){this.viewItem={...b,_type:'bill'};},
+    runPayroll(){
+      const gross=this.monthlyGross,fedTax=gross*0.20,stateTax=gross*0.05,ssMed=gross*0.0765,net=gross-fedTax-stateTax-ssMed;
+      const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const now=new Date(),period=months[now.getMonth()]+' '+now.getFullYear(),runDate=now.toISOString().slice(0,10);
+      const num=String(this.nextId.payroll).padStart(3,'0');
+      this.payrollRuns.unshift({id:`PR-${num}`,period,runDate,gross,fedTax,stateTax,ssMed,net,status:'Processed'});
+      this.nextId.payroll++;alert('Payroll processed!\nGross: '+this.fmt(gross)+'\nNet: '+this.fmt(net));
+    },
+    renderCharts(){
+      const barCtx=document.getElementById('barChart');
+      if(barCtx)new Chart(barCtx,{type:'bar',data:{labels:['Oct','Nov','Dec','Jan','Feb','Mar'],datasets:[{label:'Revenue',data:[82000,91000,105000,125000,98000,112000],backgroundColor:'rgba(59,130,246,.75)',borderRadius:6},{label:'Expenses',data:[61000,68000,78000,93000,72000,85000],backgroundColor:'rgba(239,68,68,.65)',borderRadius:6}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'$'+v.toLocaleString()}}}}});
+      const pieCtx=document.getElementById('pieChart');
+      if(pieCtx)new Chart(pieCtx,{type:'doughnut',data:{labels:['COGS','Salaries','Rent','Marketing','Depreciation','Other'],datasets:[{data:[72000,48000,18000,8500,6000,7800],backgroundColor:['#3b82f6','#8b5cf6','#f59e0b','#10b981','#f43f5e','#6b7280'],hoverOffset:8}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+    }
+  },
+  mounted(){this.$nextTick(()=>{this.renderCharts();});}
+}).mount('#app');
+</script>
+</body>
+</html>
