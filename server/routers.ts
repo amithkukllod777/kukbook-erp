@@ -455,15 +455,31 @@ export const appRouter = router({
       phone: z.string().optional(), email: z.string().optional(), industry: z.string().optional(),
     })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCompany(id, data); return { success: true }; }),
     members: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getCompanyMembers(input.companyId)),
-    addMember: adminProcedure.input(z.object({ companyId: z.number(), userId: z.number(), role: z.string() })).mutation(async ({ input }) => { await db.addCompanyMember(input.companyId, input.userId, input.role); return { success: true }; }),
-    removeMember: adminProcedure.input(z.object({ companyId: z.number(), userId: z.number() })).mutation(async ({ input }) => { await db.removeCompanyMember(input.companyId, input.userId); return { success: true }; }),
+    addMember: companyProcedure.input(z.object({ companyId: z.number(), userId: z.number(), role: z.string() })).mutation(async ({ ctx, input }) => {
+      // Only company owner/admin can add members
+      const members = await db.getCompanyMembers(ctx.companyId);
+      const currentMember = members.find((m: any) => m.userId === ctx.user.id);
+      if (!currentMember || !['owner', 'admin'].includes(currentMember.role)) {
+        throw new Error('Only company owner or admin can add members');
+      }
+      await db.addCompanyMember(input.companyId, input.userId, input.role); return { success: true };
+    }),
+    removeMember: companyProcedure.input(z.object({ companyId: z.number(), userId: z.number() })).mutation(async ({ ctx, input }) => {
+      // Only company owner/admin can remove members
+      const members = await db.getCompanyMembers(ctx.companyId);
+      const currentMember = members.find((m: any) => m.userId === ctx.user.id);
+      if (!currentMember || !['owner', 'admin'].includes(currentMember.role)) {
+        throw new Error('Only company owner or admin can remove members');
+      }
+      await db.removeCompanyMember(input.companyId, input.userId); return { success: true };
+    }),
   }),
 
   // ─── Subscription & Trial ────────────────────────────────────────────
   subscription: router({
     get: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getSubscription(input.companyId)),
     trialStatus: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getTrialStatus(input.companyId)),
-    update: adminProcedure.input(z.object({
+    update: protectedProcedure.input(z.object({
       id: z.number(), plan: z.string().optional(), status: z.string().optional(),
       paymentGateway: z.string().optional(), paymentId: z.string().optional(), amount: z.string().optional(),
     })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateSubscription(id, data); return { success: true }; }),

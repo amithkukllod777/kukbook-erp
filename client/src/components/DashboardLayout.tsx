@@ -44,6 +44,7 @@ type MenuItem = {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   path: string;
+  adminOnly?: boolean;
 };
 
 type MenuGroup = {
@@ -140,7 +141,7 @@ const menuGroups: MenuGroup[] = [
     label: "Administration",
     items: [
       { icon: Building2, label: "Company Profile", path: "/company-profile" },
-      { icon: Shield, label: "User Management", path: "/admin/users" },
+      { icon: Shield, label: "User Management", path: "/admin/users", adminOnly: true },
       { icon: UserPlus, label: "Invite Members", path: "/invite-members" },
       { icon: ShieldCheck, label: "Verification", path: "/verification" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
@@ -358,7 +359,7 @@ function DashboardLayoutContent({
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenu className="px-2 pb-1">
-                        {group.items.map(item => {
+                        {group.items.filter(item => !item.adminOnly || user?.role === 'admin').map(item => {
                           const isActive = location === item.path;
                           return (
                             <SidebarMenuItem key={item.path}>

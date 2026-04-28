@@ -251,3 +251,6 @@
 - [x] Accounting module Vitest tests (18 new tests: COA seed, General Ledger, Trial Balance, P&L, Balance Sheet, Journal Entries with account IDs, auto-posting verification) — 93 total tests passing
 - [x] Employee DB helpers updated to persist Indian salary fields (basicSalary, hra, da, specialAllowance, panNumber, uanNumber, esiNumber, pfOptOut)
 - [x] Payroll DB helper updated to persist Indian deduction fields (pfEmployee, pfEmployer, esiEmployee, esiEmployer, professionalTax, tds)
+
+## Bugs
+- [x] BUG FIX: New user signup permission denied — fixed: (1) Onboarding sets company ID in localStorage after create, (2) addMember/removeMember changed from adminProcedure to companyProcedure with owner check, (3) subscription.update changed to protectedProcedure, (4) admin-only sidebar items hidden for non-admin users via role-based filtering

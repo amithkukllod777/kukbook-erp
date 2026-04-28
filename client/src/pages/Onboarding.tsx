@@ -52,12 +52,18 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   const utils = trpc.useUtils();
   const createCompany = trpc.company.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async (data) => {
       toast.success("Company created! Your 30-day free trial has started.");
-      utils.company.list.invalidate();
+      // Set the company ID in localStorage so tRPC client sends x-company-id header
+      if (data?.company?.id) {
+        localStorage.setItem("kukbook_active_company", String(data.company.id));
+      }
       const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       localStorage.setItem("kukbook_active_company_slug", slug);
-      onComplete();
+      // Wait for company list to refresh before completing
+      await utils.company.list.invalidate();
+      // Navigate to the new company's dashboard
+      window.location.href = `/app/${slug}/dashboard`;
     },
     onError: (err) => toast.error(err.message),
   });
@@ -99,7 +105,6 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const canProceedStep1 = form.name.trim().length > 0;
-  const canProceedStep2 = true; // GSTIN/PAN are optional
   const canSubmit = form.name.trim().length > 0;
 
   return (
