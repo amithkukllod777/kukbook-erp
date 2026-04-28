@@ -433,3 +433,56 @@ export const partyGroups = mysqlTable("party_groups", {
 });
 
 export type PartyGroup = typeof partyGroups.$inferSelect;
+
+// ─── Companies (Multi-Tenant) ─────────────────────────────────────────────
+export const companies = mysqlTable("companies", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("company_name", { length: 200 }).notNull(),
+  slug: varchar("company_slug", { length: 100 }).notNull().unique(),
+  gstin: varchar("company_gstin", { length: 20 }),
+  pan: varchar("company_pan", { length: 15 }),
+  address: text("company_address"),
+  city: varchar("company_city", { length: 100 }),
+  state: varchar("company_state", { length: 100 }),
+  country: varchar("company_country", { length: 100 }).default("India"),
+  phone: varchar("company_phone", { length: 20 }),
+  email: varchar("company_email", { length: 320 }),
+  logo: text("company_logo"),
+  industry: varchar("company_industry", { length: 100 }),
+  ownerId: int("company_ownerId").notNull(),
+  createdAt: timestamp("company_createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("company_updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = typeof companies.$inferInsert;
+
+// ─── Company Members ──────────────────────────────────────────────────────
+export const companyMembers = mysqlTable("company_members", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("cm_companyId").notNull(),
+  userId: int("cm_userId").notNull(),
+  role: mysqlEnum("cm_role", ["owner", "admin", "staff", "viewer"]).default("staff").notNull(),
+  joinedAt: timestamp("cm_joinedAt").defaultNow().notNull(),
+});
+export type CompanyMember = typeof companyMembers.$inferSelect;
+
+// ─── Subscriptions ────────────────────────────────────────────────────────
+export const subscriptions = mysqlTable("subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("sub_companyId").notNull(),
+  plan: mysqlEnum("sub_plan", ["starter", "professional", "enterprise"]).default("professional").notNull(),
+  status: mysqlEnum("sub_status", ["trial", "active", "expired", "cancelled"]).default("trial").notNull(),
+  trialStartDate: timestamp("sub_trialStartDate").defaultNow().notNull(),
+  trialEndDate: timestamp("sub_trialEndDate").notNull(),
+  subscriptionStartDate: timestamp("sub_subscriptionStartDate"),
+  subscriptionEndDate: timestamp("sub_subscriptionEndDate"),
+  paymentGateway: varchar("sub_paymentGateway", { length: 50 }),
+  paymentId: varchar("sub_paymentId", { length: 200 }),
+  amount: decimal("sub_amount", { precision: 10, scale: 2 }),
+  currency: varchar("sub_currency", { length: 10 }).default("INR"),
+  autoRenew: mysqlBoolean("sub_autoRenew").default(true),
+  createdAt: timestamp("sub_createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("sub_updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;

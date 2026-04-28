@@ -7,7 +7,8 @@ import {
   warehouses, supplyChainOrders, deliveryStaff, deliveries, settings,
   saleReturns, purchaseReturns, estimates, estimateLines,
   paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome,
-  deliveryChallans, partyGroups
+  deliveryChallans, partyGroups,
+  companies, companyMembers, subscriptions
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -670,4 +671,93 @@ export async function getPartyStatement(partyType: string, partyId: number) {
     txns.sort((a, b) => a.date.localeCompare(b.date));
     return { party: vend[0] || null, transactions: txns };
   }
+}
+
+// ─── Company (Multi-Tenant) ─────────────────────────────────────────────
+export async function createCompany(data: { name: string; slug: string; gstin?: string; pan?: string; address?: string; city?: string; state?: string; phone?: string; email?: string; industry?: string; ownerId: number }) {
+  const db = await getDb(); if (!db) return null;
+  const trialEnd = new Date(); trialEnd.setDate(trialEnd.getDate() + 30);
+  const [result] = await db.insert(companies).values(data as any).$returningId();
+  // Create subscription with 30-day trial
+  await db.insert(subscriptions).values({ companyId: result.id, plan: "professional", status: "trial", trialStartDate: new Date(), trialEndDate: trialEnd } as any);
+  // Add owner as member
+  await db.insert(companyMembers).values({ companyId: result.id, userId: data.ownerId, role: "owner" } as any);
+  return result;
+}
+
+export async function getCompanies() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(companies).orderBy(desc(companies.createdAt));
+}
+
+export async function getCompanyBySlug(slug: string) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(companies).where(eq(companies.slug, slug)).limit(1);
+  return rows[0] || null;
+}
+
+export async function getCompanyById(id: number) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+  return rows[0] || null;
+}
+
+export async function getUserCompanies(userId: number) {
+  const db = await getDb(); if (!db) return [];
+  const memberships = await db.select().from(companyMembers).where(eq(companyMembers.userId, userId));
+  if (memberships.length === 0) return [];
+  const companyIds = memberships.map(m => m.companyId);
+  const allCompanies = await db.select().from(companies);
+  return allCompanies.filter(c => companyIds.includes(c.id)).map(c => {
+    const membership = memberships.find(m => m.companyId === c.id);
+    return { ...c, memberRole: membership?.role };
+  });
+}
+
+export async function updateCompany(id: number, data: Partial<{ name: string; gstin: string; pan: string; address: string; city: string; state: string; phone: string; email: string; logo: string; industry: string }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(companies).set(data as any).where(eq(companies.id, id));
+}
+
+// ─── Company Members ──────────────────────────────────────────────────────
+export async function getCompanyMembers(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  const members = await db.select().from(companyMembers).where(eq(companyMembers.companyId, companyId));
+  const allUsers = await db.select().from(users);
+  return members.map(m => {
+    const user = allUsers.find(u => u.id === m.userId);
+    return { ...m, userName: user?.name, userEmail: user?.email };
+  });
+}
+
+export async function addCompanyMember(companyId: number, userId: number, role: string) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(companyMembers).values({ companyId, userId, role } as any);
+}
+
+export async function removeCompanyMember(companyId: number, userId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(companyMembers).where(and(eq(companyMembers.companyId, companyId), eq(companyMembers.userId, userId)));
+}
+
+// ─── Subscriptions ────────────────────────────────────────────────────────
+export async function getSubscription(companyId: number) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(subscriptions).where(eq(subscriptions.companyId, companyId)).orderBy(desc(subscriptions.createdAt)).limit(1);
+  return rows[0] || null;
+}
+
+export async function updateSubscription(id: number, data: Partial<{ plan: string; status: string; paymentGateway: string; paymentId: string; amount: string; subscriptionStartDate: Date; subscriptionEndDate: Date; autoRenew: boolean }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(subscriptions).set(data as any).where(eq(subscriptions.id, id));
+}
+
+export async function getTrialStatus(companyId: number) {
+  const sub = await getSubscription(companyId);
+  if (!sub) return { isTrialActive: false, daysLeft: 0, plan: 'none', status: 'expired' };
+  const now = new Date();
+  const trialEnd = new Date(sub.trialEndDate);
+  const daysLeft = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  const isTrialActive = sub.status === 'trial' && daysLeft > 0;
+  return { isTrialActive, daysLeft, plan: sub.plan, status: sub.status, trialEndDate: sub.trialEndDate, subscriptionEndDate: sub.subscriptionEndDate };
 }

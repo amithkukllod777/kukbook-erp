@@ -1,66 +1,87 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Building2, Plus, Settings, ArrowRight, CheckCircle, Star } from "lucide-react";
+import { Building2, Plus, Check, Settings, MapPin, Phone, Mail, Hash, ArrowRight, CheckCircle, Star } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
 export default function MultiFirm() {
-  const [firms, setFirms] = useState([
-    { id: 1, name: "KukBook Technologies Pvt Ltd", gstin: "29AABCT1332L1ZL", type: "Private Limited", address: "Bangalore, Karnataka", active: true, createdAt: "2026-01-15" },
-    { id: 2, name: "KukBook Retail", gstin: "29AADCB2230M1ZT", type: "Proprietorship", address: "Mumbai, Maharashtra", active: false, createdAt: "2026-03-20" },
-  ]);
+  const utils = trpc.useUtils();
+  const { data: companies = [], isLoading } = trpc.company.list.useQuery();
+  const createMut = trpc.company.create.useMutation({
+    onSuccess: () => { utils.company.list.invalidate(); setOpen(false); setForm({ name: "", slug: "", gstin: "", pan: "", address: "", city: "", state: "", phone: "", email: "", industry: "" }); toast.success("Company created with 30-day free trial!"); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", gstin: "", type: "Private Limited", address: "" });
+  const [form, setForm] = useState({ name: "", slug: "", gstin: "", pan: "", address: "", city: "", state: "", phone: "", email: "", industry: "" });
+  const [activeFirm, setActiveFirm] = useState<number | null>(null);
 
-  const handleAdd = () => {
-    if (!form.name) { toast.error("Firm name is required"); return; }
-    setFirms([...firms, { id: firms.length + 1, ...form, active: false, createdAt: new Date().toISOString().split("T")[0] }]);
-    setOpen(false);
-    setForm({ name: "", gstin: "", type: "Private Limited", address: "" });
-    toast.success("Firm added successfully");
+  const handleCreate = () => {
+    if (!form.name || !form.slug) { toast.error("Company name and slug are required"); return; }
+    createMut.mutate(form);
   };
 
-  const switchFirm = (id: number) => {
-    setFirms(firms.map(f => ({ ...f, active: f.id === id })));
-    toast.success(`Switched to ${firms.find(f => f.id === id)?.name}`);
-  };
+  const activeId = activeFirm || (companies[0] as any)?.id;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Building2 className="h-6 w-6" />Multi-Firm Management</h1><p className="text-sm text-muted-foreground mt-1">Manage multiple businesses from a single account</p></div>
-        <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" />Add Firm</Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><Building2 className="h-6 w-6" />Multi-Firm Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage multiple businesses from one account</p>
+        </div>
+        <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" />Add Company</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {firms.map(firm => (
-          <Card key={firm.id} className={`transition-all hover:shadow-md ${firm.active ? "ring-2 ring-primary" : ""}`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />{firm.name}
-                </CardTitle>
-                {firm.active && <Badge className="bg-primary text-primary-foreground"><Star className="h-3 w-3 mr-1" />Active</Badge>}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">GSTIN</span><span className="font-mono">{firm.gstin || "—"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span>{firm.type}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Address</span><span>{firm.address || "—"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{firm.createdAt}</span></div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                {!firm.active && <Button className="flex-1" onClick={() => switchFirm(firm.id)}><ArrowRight className="h-4 w-4 mr-2" />Switch to this Firm</Button>}
-                {firm.active && <Button variant="outline" className="flex-1" disabled><CheckCircle className="h-4 w-4 mr-2" />Currently Active</Button>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading companies...</div>
+      ) : companies.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Building2 className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Companies Yet</h3>
+            <p className="text-muted-foreground mb-4">Create your first company to get started with a 30-day free trial</p>
+            <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" />Create First Company</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {companies.map((c: any) => (
+            <Card key={c.id} className={`cursor-pointer transition-all hover:shadow-md ${activeId === c.id ? "ring-2 ring-primary shadow-md" : ""}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" />{c.name}</CardTitle>
+                  {activeId === c.id && <Badge className="bg-primary text-primary-foreground"><Star className="h-3 w-3 mr-1" />Active</Badge>}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2 text-sm">
+                  {c.slug && <div className="flex justify-between"><span className="text-muted-foreground">Slug</span><span className="font-mono">{c.slug}</span></div>}
+                  {c.gstin && <div className="flex justify-between"><span className="text-muted-foreground">GSTIN</span><span className="font-mono">{c.gstin}</span></div>}
+                  {c.industry && <div className="flex justify-between"><span className="text-muted-foreground">Industry</span><span>{c.industry}</span></div>}
+                  {c.city && <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{c.city}{c.state ? `, ${c.state}` : ""}</span></div>}
+                  {c.email && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{c.email}</span></div>}
+                  {c.phone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{c.phone}</span></div>}
+                  <div className="flex justify-between"><span className="text-muted-foreground">Role</span><Badge variant="outline" className="capitalize">{c.memberRole || "owner"}</Badge></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{new Date(c.createdAt).toLocaleDateString()}</span></div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  {activeId !== c.id ? (
+                    <Button className="flex-1" onClick={() => { setActiveFirm(c.id); toast.success(`Switched to ${c.name}`); }}><ArrowRight className="h-4 w-4 mr-2" />Switch to this Firm</Button>
+                  ) : (
+                    <Button variant="outline" className="flex-1" disabled><CheckCircle className="h-4 w-4 mr-2" />Currently Active</Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-6">
@@ -68,22 +89,39 @@ export default function MultiFirm() {
             <Settings className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="font-medium">How Multi-Firm Works</p>
-              <p className="text-sm text-muted-foreground">Each firm maintains its own set of books — separate invoices, bills, inventory, and reports. Switch between firms using the cards above. The active firm's data is shown across all modules.</p>
+              <p className="text-sm text-muted-foreground">Each firm maintains its own set of books — separate invoices, bills, inventory, and reports. Switch between firms using the cards above. The active firm's data is shown across all modules. Each new company gets a 30-day free trial.</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add New Firm</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div><label className="text-sm font-medium">Firm Name *</label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="My Company Pvt Ltd" /></div>
-            <div><label className="text-sm font-medium">GSTIN</label><Input value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} placeholder="29AABCT1332L1ZL" /></div>
-            <div><label className="text-sm font-medium">Business Type</label><Input value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} placeholder="Private Limited / Proprietorship" /></div>
-            <div><label className="text-sm font-medium">Address</label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="City, State" /></div>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Create New Company</DialogTitle></DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Company Name *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') }))} placeholder="Acme Corp" /></div>
+              <div><Label>Slug (URL) *</Label><Input value={form.slug} onChange={e => setForm(p => ({ ...p, slug: e.target.value }))} placeholder="acme-corp" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>GSTIN</Label><Input value={form.gstin} onChange={e => setForm(p => ({ ...p, gstin: e.target.value }))} placeholder="22AAAAA0000A1Z5" /></div>
+              <div><Label>PAN</Label><Input value={form.pan} onChange={e => setForm(p => ({ ...p, pan: e.target.value }))} placeholder="AAAAA0000A" /></div>
+            </div>
+            <div><Label>Address</Label><Input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="123 Business Street" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>City</Label><Input value={form.city} onChange={e => setForm(p => ({ ...p, city: e.target.value }))} placeholder="Mumbai" /></div>
+              <div><Label>State</Label><Input value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))} placeholder="Maharashtra" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+91 9876543210" /></div>
+              <div><Label>Email</Label><Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="info@company.com" /></div>
+            </div>
+            <div><Label>Industry</Label><Input value={form.industry} onChange={e => setForm(p => ({ ...p, industry: e.target.value }))} placeholder="Manufacturing, Retail, Services..." /></div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleAdd}>Add Firm</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createMut.isPending}>{createMut.isPending ? "Creating..." : "Create Company (30-day Free Trial)"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

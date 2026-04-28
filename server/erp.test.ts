@@ -153,6 +153,19 @@ vi.mock("./db", () => {
     getStockSummary: vi.fn().mockResolvedValue([{ id: 1, sku: "WDG-001", name: "Widget A", category: "Widgets", qty: 5, cost: "12.50", reorder: 10 }]),
     getPartyStatement: vi.fn().mockResolvedValue({ party: { id: 1, name: "Acme Corp" }, transactions: [{ date: "2026-01-15", type: "Invoice", ref: "INV-001", debit: 1000, credit: 0 }] }),
     getGSTSummary: vi.fn().mockResolvedValue({ salesGST: 5000, purchaseGST: 3000, expenseGST: 500, netGST: 1500, invoices: [], bills: [], expenses: [] }),
+    // Company & Subscription
+    createCompany: vi.fn().mockResolvedValue({ id: 1 }),
+    getCompanies: vi.fn().mockResolvedValue([{ id: 1, name: "Test Corp", slug: "test-corp", ownerId: 1 }]),
+    getCompanyBySlug: vi.fn().mockResolvedValue({ id: 1, name: "Test Corp", slug: "test-corp", ownerId: 1 }),
+    getCompanyById: vi.fn().mockResolvedValue({ id: 1, name: "Test Corp", slug: "test-corp", ownerId: 1 }),
+    getUserCompanies: vi.fn().mockResolvedValue([{ id: 1, name: "Test Corp", slug: "test-corp", memberRole: "owner" }]),
+    updateCompany: vi.fn().mockResolvedValue(undefined),
+    getCompanyMembers: vi.fn().mockResolvedValue([{ id: 1, companyId: 1, userId: 1, role: "owner", userName: "Test", userEmail: "test@test.com" }]),
+    addCompanyMember: vi.fn().mockResolvedValue(undefined),
+    removeCompanyMember: vi.fn().mockResolvedValue(undefined),
+    getSubscription: vi.fn().mockResolvedValue({ id: 1, companyId: 1, plan: "professional", status: "trial", trialStartDate: new Date(), trialEndDate: new Date(Date.now() + 30*24*60*60*1000), autoRenew: true }),
+    updateSubscription: vi.fn().mockResolvedValue(undefined),
+    getTrialStatus: vi.fn().mockResolvedValue({ isTrialActive: true, daysLeft: 28, plan: "professional", status: "trial" }),
   };
 });
 
@@ -657,5 +670,52 @@ describe("gst", () => {
     expect(data).toHaveProperty("salesGST");
     expect(data).toHaveProperty("purchaseGST");
     expect(data).toHaveProperty("netGST");
+  });
+});
+
+describe("company", () => {
+  it("lists user companies", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.company.list();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data[0]).toHaveProperty("name");
+    expect(data[0]).toHaveProperty("slug");
+  });
+  it("creates a company", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.company.create({ name: "New Corp", slug: "new-corp" });
+    expect(result.success).toBe(true);
+  });
+  it("gets company by slug", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.company.getBySlug({ slug: "test-corp" });
+    expect(data).toHaveProperty("name", "Test Corp");
+  });
+  it("updates a company", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.company.update({ id: 1, name: "Updated Corp" });
+    expect(result.success).toBe(true);
+  });
+  it("lists company members", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.company.members({ companyId: 1 });
+    expect(Array.isArray(data)).toBe(true);
+    expect(data[0]).toHaveProperty("role", "owner");
+  });
+});
+
+describe("subscription", () => {
+  it("gets subscription for a company", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.subscription.get({ companyId: 1 });
+    expect(data).toHaveProperty("plan", "professional");
+    expect(data).toHaveProperty("status", "trial");
+  });
+  it("gets trial status", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.subscription.trialStatus({ companyId: 1 });
+    expect(data).toHaveProperty("isTrialActive", true);
+    expect(data).toHaveProperty("daysLeft");
+    expect(data.daysLeft).toBeGreaterThan(0);
   });
 });

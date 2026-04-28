@@ -356,5 +356,35 @@ export const appRouter = router({
     users: adminProcedure.query(async () => db.getAllUsers()),
     updateRole: adminProcedure.input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) })).mutation(async ({ input }) => { await db.updateUserRole(input.userId, input.role); return { success: true }; }),
   }),
+  // ─── Company (Multi-Tenant) ───────────────────────────────────────────
+  company: router({
+    list: protectedProcedure.query(async ({ ctx }) => db.getUserCompanies(ctx.user.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), slug: z.string(), gstin: z.string().optional(), pan: z.string().optional(),
+      address: z.string().optional(), city: z.string().optional(), state: z.string().optional(),
+      phone: z.string().optional(), email: z.string().optional(), industry: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const result = await db.createCompany({ ...input, ownerId: ctx.user.id });
+      return { success: true, company: result };
+    }),
+    getBySlug: protectedProcedure.input(z.object({ slug: z.string() })).query(async ({ input }) => db.getCompanyBySlug(input.slug)),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), gstin: z.string().optional(), pan: z.string().optional(),
+      address: z.string().optional(), city: z.string().optional(), state: z.string().optional(),
+      phone: z.string().optional(), email: z.string().optional(), industry: z.string().optional(),
+    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCompany(id, data); return { success: true }; }),
+    members: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getCompanyMembers(input.companyId)),
+    addMember: adminProcedure.input(z.object({ companyId: z.number(), userId: z.number(), role: z.string() })).mutation(async ({ input }) => { await db.addCompanyMember(input.companyId, input.userId, input.role); return { success: true }; }),
+    removeMember: adminProcedure.input(z.object({ companyId: z.number(), userId: z.number() })).mutation(async ({ input }) => { await db.removeCompanyMember(input.companyId, input.userId); return { success: true }; }),
+  }),
+  // ─── Subscription & Trial ────────────────────────────────────────────
+  subscription: router({
+    get: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getSubscription(input.companyId)),
+    trialStatus: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getTrialStatus(input.companyId)),
+    update: adminProcedure.input(z.object({
+      id: z.number(), plan: z.string().optional(), status: z.string().optional(),
+      paymentGateway: z.string().optional(), paymentId: z.string().optional(), amount: z.string().optional(),
+    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateSubscription(id, data); return { success: true }; }),
+  }),
 });
 export type AppRouter = typeof appRouter;

@@ -143,14 +143,17 @@
 - [x] Updated sidebar with all new modules (9 groups, 25+ items)
 
 ## Tests & Polish
-- [x] Vitest tests for all modules (59 tests passing)
+- [x] Vitest tests for all modules (66 tests passing)
 - [x] Final status check — zero TypeScript errors
 
 ## Future Enhancements (Not Yet Implemented)
 - [x] Subscription management UI page (plans comparison + billing info)
-- [ ] Multi-Tenant Architecture (companyId isolation, subdomain routing — future)
-- [ ] Subscription plans with payment gateway (Stripe/Razorpay — future)
-- [ ] 30-day free trial tracking (future)
+- [x] Multi-Tenant foundation (companies, members, subscriptions tables + CRUD APIs + UI)
+- [ ] Full companyId scoping across all business tables (future — requires schema-wide migration)
+- [ ] Subdomain routing per company (future — requires custom domain setup)
+- [x] Subscription plans UI with trial tracking and plan comparison
+- [ ] Stripe/Razorpay payment gateway integration (future — requires API keys)
+- [x] 30-day free trial tracking (auto-created on company creation)
 - [x] GST GSTR-1 report page
 - [x] GST GSTR-3B report
 - [x] HSN code support in inventory
