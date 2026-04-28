@@ -792,3 +792,32 @@ describe("Cross-Company Data Isolation", () => {
     expect(db.getGSTSummary).toHaveBeenCalledWith(1);
   });
 });
+
+describe("slug-based company routing", () => {
+  it("resolves company by slug for routing", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const company = await caller.company.getBySlug({ slug: "test-corp" });
+    expect(company).toBeDefined();
+    expect(company?.slug).toBe("test-corp");
+    expect(company?.id).toBe(1);
+  });
+
+  it("returns company list with slug for URL generation", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const companies = await caller.company.list();
+    expect(companies.length).toBeGreaterThan(0);
+    for (const c of companies) {
+      expect(c).toHaveProperty("slug");
+      expect(typeof c.slug).toBe("string");
+      expect(c.slug.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("creates company with slug for URL routing", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.company.create({ name: "Slug Test Corp", slug: "slug-test-corp" });
+    expect(result.success).toBe(true);
+    expect(db.createCompany).toHaveBeenCalledWith(expect.objectContaining({ slug: "slug-test-corp" }));
+  });
+});

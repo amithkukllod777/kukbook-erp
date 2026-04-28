@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { CreditCard, Check, Crown, Zap, Building2, ArrowRight, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useCompany } from "@/contexts/CompanyContext";
 
 const plans = [
   {
@@ -30,15 +31,14 @@ export default function Subscription() {
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
-  const { data: userCompanies = [] } = trpc.company.list.useQuery();
-  const firstCompany = userCompanies[0];
+  const { activeCompany } = useCompany();
   const { data: trialData } = trpc.subscription.trialStatus.useQuery(
-    { companyId: firstCompany?.id ?? 0 },
-    { enabled: !!firstCompany }
+    { companyId: activeCompany?.id ?? 0 },
+    { enabled: !!activeCompany }
   );
   const { data: subData } = trpc.subscription.get.useQuery(
-    { companyId: firstCompany?.id ?? 0 },
-    { enabled: !!firstCompany }
+    { companyId: activeCompany?.id ?? 0 },
+    { enabled: !!activeCompany }
   );
 
   const checkout = trpc.subscription.createCheckout.useMutation({
@@ -60,13 +60,13 @@ export default function Subscription() {
   const status = trialData?.status || "trial";
 
   const handleChoosePlan = (planId: string) => {
-    if (!firstCompany) {
+    if (!activeCompany) {
       toast.error("Please create a company first");
       return;
     }
     setLoadingPlan(planId);
     checkout.mutate({
-      companyId: firstCompany.id,
+      companyId: activeCompany.id,
       plan: planId,
       interval,
       origin: window.location.origin,
@@ -77,7 +77,7 @@ export default function Subscription() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><CreditCard className="h-6 w-6" />Subscription</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your subscription plan and billing</p>
+        <p className="text-sm text-muted-foreground mt-1">Manage your subscription plan and billing for {activeCompany?.name || "your company"}</p>
       </div>
 
       {/* Current Plan Status */}
@@ -102,7 +102,7 @@ export default function Subscription() {
               )}
               {status === "active" && <p className="text-sm text-muted-foreground">Your subscription is active.</p>}
               {status === "expired" && <p className="text-sm text-red-600">Your subscription has expired. Please renew to continue.</p>}
-              {!firstCompany && <p className="text-sm text-muted-foreground">Create a company first to start your free trial.</p>}
+              {!activeCompany && <p className="text-sm text-muted-foreground">Create a company first to start your free trial.</p>}
             </div>
           </div>
         </CardContent>
@@ -173,7 +173,7 @@ export default function Subscription() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="space-y-2">
               <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span className="font-medium capitalize">{currentPlan} ({status})</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Company</span><span>{firstCompany?.name || "No company created"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Company</span><span>{activeCompany?.name || "No company created"}</span></div>
               {subData && <div className="flex justify-between"><span className="text-muted-foreground">Trial Started</span><span>{new Date(subData.trialStartDate).toLocaleDateString()}</span></div>}
               {subData && <div className="flex justify-between"><span className="text-muted-foreground">Trial Ends</span><span>{new Date(subData.trialEndDate).toLocaleDateString()}</span></div>}
             </div>

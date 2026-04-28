@@ -155,7 +155,7 @@ const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
 
 function CompanySwitcher({ isCollapsed }: { isCollapsed: boolean }) {
-  const { companies, activeCompany, setActiveCompanyId } = useCompany();
+  const { companies, activeCompany, switchToCompany } = useCompany();
   const [open, setOpen] = useState(false);
 
   if (companies.length === 0 || !activeCompany) return null;
@@ -191,7 +191,12 @@ function CompanySwitcher({ isCollapsed }: { isCollapsed: boolean }) {
           {companies.map(c => (
             <DropdownMenuItem
               key={c.id}
-              onClick={() => { setActiveCompanyId(c.id); setOpen(false); }}
+              onClick={() => {
+                if (c.id !== activeCompany.id) {
+                  switchToCompany(c);
+                }
+                setOpen(false);
+              }}
               className="cursor-pointer"
             >
               <div className="flex items-center gap-2 w-full">

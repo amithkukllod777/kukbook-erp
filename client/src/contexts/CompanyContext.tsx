@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { trpc } from "@/lib/trpc";
 
 interface Company {
@@ -13,6 +13,7 @@ interface CompanyContextType {
   companies: Company[];
   activeCompany: Company | null;
   setActiveCompanyId: (id: number) => void;
+  switchToCompany: (company: Company) => void;
   isLoading: boolean;
 }
 
@@ -20,6 +21,7 @@ const CompanyContext = createContext<CompanyContextType>({
   companies: [],
   activeCompany: null,
   setActiveCompanyId: () => {},
+  switchToCompany: () => {},
   isLoading: true,
 });
 
@@ -41,13 +43,21 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     }
   }, [activeCompany, activeId]);
 
-  const setActiveCompanyId = (id: number) => {
+  const setActiveCompanyId = useCallback((id: number) => {
     setActiveId(id);
     localStorage.setItem("kukbook_active_company", String(id));
-  };
+  }, []);
+
+  /** Switch to a company and navigate to its slug-based URL */
+  const switchToCompany = useCallback((company: Company) => {
+    setActiveId(company.id);
+    localStorage.setItem("kukbook_active_company", String(company.id));
+    // Navigate to the company's slug-based URL
+    window.location.href = `/app/${company.slug}`;
+  }, []);
 
   return (
-    <CompanyContext.Provider value={{ companies, activeCompany, setActiveCompanyId, isLoading }}>
+    <CompanyContext.Provider value={{ companies, activeCompany, setActiveCompanyId, switchToCompany, isLoading }}>
       {children}
     </CompanyContext.Provider>
   );

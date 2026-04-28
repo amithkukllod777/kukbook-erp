@@ -5,28 +5,32 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Building2, Plus, Check, Settings, MapPin, Phone, Mail, Hash, ArrowRight, CheckCircle, Star } from "lucide-react";
+import { Building2, Plus, Settings, ArrowRight, CheckCircle, Star } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useCompany } from "@/contexts/CompanyContext";
 
 export default function MultiFirm() {
   const utils = trpc.useUtils();
+  const { activeCompany, switchToCompany } = useCompany();
   const { data: companies = [], isLoading } = trpc.company.list.useQuery();
   const createMut = trpc.company.create.useMutation({
-    onSuccess: () => { utils.company.list.invalidate(); setOpen(false); setForm({ name: "", slug: "", gstin: "", pan: "", address: "", city: "", state: "", phone: "", email: "", industry: "" }); toast.success("Company created with 30-day free trial!"); },
+    onSuccess: (_data, variables) => {
+      utils.company.list.invalidate();
+      setOpen(false);
+      setForm({ name: "", slug: "", gstin: "", pan: "", address: "", city: "", state: "", phone: "", email: "", industry: "" });
+      toast.success("Company created with 30-day free trial!");
+    },
     onError: (e) => toast.error(e.message),
   });
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", slug: "", gstin: "", pan: "", address: "", city: "", state: "", phone: "", email: "", industry: "" });
-  const [activeFirm, setActiveFirm] = useState<number | null>(null);
 
   const handleCreate = () => {
     if (!form.name || !form.slug) { toast.error("Company name and slug are required"); return; }
     createMut.mutate(form);
   };
-
-  const activeId = activeFirm || (companies[0] as any)?.id;
 
   return (
     <div className="space-y-6">
@@ -51,35 +55,40 @@ export default function MultiFirm() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {companies.map((c: any) => (
-            <Card key={c.id} className={`cursor-pointer transition-all hover:shadow-md ${activeId === c.id ? "ring-2 ring-primary shadow-md" : ""}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" />{c.name}</CardTitle>
-                  {activeId === c.id && <Badge className="bg-primary text-primary-foreground"><Star className="h-3 w-3 mr-1" />Active</Badge>}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2 text-sm">
-                  {c.slug && <div className="flex justify-between"><span className="text-muted-foreground">Slug</span><span className="font-mono">{c.slug}</span></div>}
-                  {c.gstin && <div className="flex justify-between"><span className="text-muted-foreground">GSTIN</span><span className="font-mono">{c.gstin}</span></div>}
-                  {c.industry && <div className="flex justify-between"><span className="text-muted-foreground">Industry</span><span>{c.industry}</span></div>}
-                  {c.city && <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{c.city}{c.state ? `, ${c.state}` : ""}</span></div>}
-                  {c.email && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{c.email}</span></div>}
-                  {c.phone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{c.phone}</span></div>}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Role</span><Badge variant="outline" className="capitalize">{c.memberRole || "owner"}</Badge></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{new Date(c.createdAt).toLocaleDateString()}</span></div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  {activeId !== c.id ? (
-                    <Button className="flex-1" onClick={() => { setActiveFirm(c.id); toast.success(`Switched to ${c.name}`); }}><ArrowRight className="h-4 w-4 mr-2" />Switch to this Firm</Button>
-                  ) : (
-                    <Button variant="outline" className="flex-1" disabled><CheckCircle className="h-4 w-4 mr-2" />Currently Active</Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {companies.map((c: any) => {
+            const isActive = activeCompany?.id === c.id;
+            return (
+              <Card key={c.id} className={`cursor-pointer transition-all hover:shadow-md ${isActive ? "ring-2 ring-primary shadow-md" : ""}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" />{c.name}</CardTitle>
+                    {isActive && <Badge className="bg-primary text-primary-foreground"><Star className="h-3 w-3 mr-1" />Active</Badge>}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2 text-sm">
+                    {c.slug && <div className="flex justify-between"><span className="text-muted-foreground">URL</span><span className="font-mono text-xs">/app/{c.slug}</span></div>}
+                    {c.gstin && <div className="flex justify-between"><span className="text-muted-foreground">GSTIN</span><span className="font-mono">{c.gstin}</span></div>}
+                    {c.industry && <div className="flex justify-between"><span className="text-muted-foreground">Industry</span><span>{c.industry}</span></div>}
+                    {c.city && <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{c.city}{c.state ? `, ${c.state}` : ""}</span></div>}
+                    {c.email && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{c.email}</span></div>}
+                    {c.phone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{c.phone}</span></div>}
+                    <div className="flex justify-between"><span className="text-muted-foreground">Role</span><Badge variant="outline" className="capitalize">{c.memberRole || "owner"}</Badge></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{new Date(c.createdAt).toLocaleDateString()}</span></div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    {!isActive ? (
+                      <Button className="flex-1" onClick={() => switchToCompany(c)}>
+                        <ArrowRight className="h-4 w-4 mr-2" />Switch to this Firm
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="flex-1" disabled><CheckCircle className="h-4 w-4 mr-2" />Currently Active</Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -89,7 +98,7 @@ export default function MultiFirm() {
             <Settings className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="font-medium">How Multi-Firm Works</p>
-              <p className="text-sm text-muted-foreground">Each firm maintains its own set of books — separate invoices, bills, inventory, and reports. Switch between firms using the cards above. The active firm's data is shown across all modules. Each new company gets a 30-day free trial.</p>
+              <p className="text-sm text-muted-foreground">Each firm maintains its own set of books — separate invoices, bills, inventory, and reports. Switch between firms using the company switcher in the sidebar or the cards above. Each company gets its own URL (e.g., /app/your-company-slug). Each new company gets a 30-day free trial.</p>
             </div>
           </div>
         </CardContent>

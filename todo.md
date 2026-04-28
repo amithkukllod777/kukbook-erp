@@ -155,7 +155,7 @@
 - [x] Active company propagation via x-company-id header from frontend to backend
 - [x] Update all DB helpers and tRPC procedures to filter by companyId
 - [x] Cross-company data isolation vitest tests (72 tests passing, 6 dedicated isolation tests)
-- [ ] Subdomain routing per company (requires custom domain setup — post-deployment)
+- [x] Slug-based company routing (/app/:slug/...) — practical alternative to subdomain routing
 - [x] Subscription plans UI with trial tracking and plan comparison
 - [x] Stripe payment gateway integration (checkout sessions, webhook handler, subscription activation)
 - [x] 30-day free trial tracking (auto-created on company creation)
@@ -189,4 +189,9 @@
 - [x] Test event detection (evt_test_ prefix → verified: true)
 - [x] Subscription page with real Stripe checkout flow
 - [x] Test card info displayed (4242 4242 4242 4242)
-- [ ] Subdomain routing per company (requires custom domain setup — post-deployment)
+- [x] Slug-based company routing (/app/:slug/...) — implemented as alternative to subdomain routing
+- [x] OAuth return-path preservation (login redirects back to /app/:slug/... deep links)
+- [x] SlugRouter gates rendering until active company is synced (prevents cross-company data leaks)
+- [x] Subscription page uses CompanyContext.activeCompany (not userCompanies[0])
+- [x] SDK decodeState supports both legacy and new JSON state format
+- [x] Code pushed to GitHub repository (amithkukllod777/kukbook-erp)

@@ -24,9 +24,12 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   const utils = trpc.useUtils();
   const createCompany = trpc.company.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data) => {
       toast.success("Company created successfully! Your 30-day free trial has started.");
       utils.company.list.invalidate();
+      // Store slug and redirect to slug-based URL after company list refreshes
+      const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      localStorage.setItem("kukbook_active_company_slug", slug);
       onComplete();
     },
     onError: (err) => toast.error(err.message),
@@ -65,10 +68,11 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
               <div>
                 <Label htmlFor="slug">URL Slug</Label>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">kukbook.com/</span>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">/app/</span>
                   <Input id="slug" value={form.slug}
                     onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} />
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">Your company will be accessible at /app/{form.slug || "your-slug"}</p>
               </div>
               <div>
                 <Label htmlFor="industry">Industry</Label>

@@ -1,12 +1,12 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Router, Redirect, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CompanyProvider, useCompany } from "./contexts/CompanyContext";
 import DashboardLayout from "./components/DashboardLayout";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -60,7 +60,8 @@ function PageLoader() {
   );
 }
 
-function AuthenticatedRouter() {
+/** Routes rendered inside DashboardLayout — all paths are relative to /app/:slug base */
+function CompanyRoutes() {
   return (
     <DashboardLayout>
       <Suspense fallback={<PageLoader />}>
@@ -103,7 +104,6 @@ function AuthenticatedRouter() {
           <Route path="/subscription" component={Subscription} />
           <Route path="/admin/users" component={AdminUsers} />
           <Route path="/admin/settings" component={AdminSettings} />
-          <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
@@ -111,9 +111,75 @@ function AuthenticatedRouter() {
   );
 }
 
+/**
+ * Slug-based company router.
+ * When the URL is /app/:slug/..., we resolve the slug to a company,
+ * set it as active, and GATE rendering until the active company matches
+ * the slug to prevent cross-company data leaks.
+ */
+function SlugRouter({ slug }: { slug: string }) {
+  const { companies, activeCompany, setActiveCompanyId, isLoading } = useCompany();
+  const [synced, setSynced] = useState(false);
+
+  // Find company by slug
+  const targetCompany = companies.find(c => c.slug === slug);
+
+  // Sync active company to the slug in the URL and gate rendering
+  useEffect(() => {
+    if (!targetCompany) {
+      setSynced(true); // No target — will show error
+      return;
+    }
+    if (activeCompany?.id === targetCompany.id) {
+      setSynced(true); // Already synced
+      return;
+    }
+    // Set active and wait for next render cycle
+    setActiveCompanyId(targetCompany.id);
+    setSynced(false);
+  }, [targetCompany, activeCompany?.id, setActiveCompanyId]);
+
+  // After setActiveCompanyId, wait for activeCompany to match
+  useEffect(() => {
+    if (targetCompany && activeCompany?.id === targetCompany.id) {
+      setSynced(true);
+    }
+  }, [targetCompany, activeCompany?.id]);
+
+  if (isLoading || (!synced && targetCompany)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If slug doesn't match any company the user has access to
+  if (!targetCompany) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-center max-w-md p-8">
+          <h1 className="text-2xl font-bold mb-2">Company Not Found</h1>
+          <p className="text-muted-foreground mb-4">
+            The company "{slug}" was not found or you don't have access to it.
+          </p>
+          <a href="/" className="text-primary hover:underline">Go to Home</a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Router base={`/app/${slug}`}>
+      <CompanyRoutes />
+    </Router>
+  );
+}
+
 function CompanyGate() {
-  const { companies, isLoading } = useCompany();
+  const { companies, activeCompany, isLoading } = useCompany();
   const [onboarded, setOnboarded] = useState(false);
+  const [location, setLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -132,7 +198,29 @@ function CompanyGate() {
     );
   }
 
-  return <AuthenticatedRouter />;
+  // If user is at root "/" and has companies, redirect to the active company's slug URL
+  if (location === "/" && activeCompany) {
+    return <Redirect to={`/app/${activeCompany.slug}`} />;
+  }
+
+  return (
+    <Switch>
+      {/* Slug-based company routes: /app/:slug/... */}
+      <Route path="/app/:slug" nest>
+        {(params: { slug: string }) => <SlugRouter slug={params.slug} />}
+      </Route>
+
+      {/* Fallback: redirect to active company if available */}
+      <Route>
+        {() => {
+          if (activeCompany) {
+            return <Redirect to={`/app/${activeCompany.slug}`} />;
+          }
+          return <NotFound />;
+        }}
+      </Route>
+    </Switch>
+  );
 }
 
 function AppRouter() {

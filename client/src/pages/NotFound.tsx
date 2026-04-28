@@ -7,6 +7,9 @@ export default function NotFound() {
   const [, setLocation] = useLocation();
 
   const handleGoHome = () => {
+    // Navigate to "/" which is relative to the current Router base
+    // Inside /app/:slug, this goes to /app/:slug/
+    // Outside, this goes to /
     setLocation("/");
   };
 
@@ -42,7 +45,7 @@ export default function NotFound() {
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <Home className="w-4 h-4 mr-2" />
-              Go Home
+              Go to Dashboard
             </Button>
           </div>
         </CardContent>

@@ -9,6 +9,34 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * Parse the OAuth state parameter.
+ * Supports two formats:
+ * 1. Legacy: base64-encoded redirect URI string
+ * 2. New: base64-encoded JSON with { redirectUri, returnPath }
+ */
+function parseState(state: string): { redirectUri: string; returnPath: string } {
+  try {
+    const decoded = atob(state);
+    // Try parsing as JSON first (new format)
+    try {
+      const parsed = JSON.parse(decoded);
+      if (parsed && typeof parsed === "object" && parsed.redirectUri) {
+        return {
+          redirectUri: parsed.redirectUri,
+          returnPath: parsed.returnPath || "/",
+        };
+      }
+    } catch {
+      // Not JSON — legacy format (plain redirect URI)
+    }
+    // Legacy: the decoded string is the redirect URI itself
+    return { redirectUri: decoded, returnPath: "/" };
+  } catch {
+    return { redirectUri: "", returnPath: "/" };
+  }
+}
+
 export function registerOAuthRoutes(app: Express) {
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
@@ -44,7 +72,11 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      res.redirect(302, "/");
+      // Redirect to the preserved return path (e.g. /app/my-company/invoices)
+      const { returnPath } = parseState(state);
+      // Sanitize: only allow paths starting with / to prevent open redirect
+      const safePath = returnPath.startsWith("/") ? returnPath : "/";
+      res.redirect(302, safePath);
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });
