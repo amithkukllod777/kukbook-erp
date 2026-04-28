@@ -195,3 +195,44 @@
 - [x] Subscription page uses CompanyContext.activeCompany (not userCompanies[0])
 - [x] SDK decodeState supports both legacy and new JSON state format
 - [x] Code pushed to GitHub repository (amithkukllod777/kukbook-erp)
+
+## Priority 1 — Accounting Module (Proper Rebuild)
+- [x] Proper Indian Chart of Accounts (COA) with hierarchy (Group > Sub-Group > Ledger)
+- [x] COA tree view UI with expand/collapse and proper grouping
+- [x] Opening balance support for accounts
+- [x] General Ledger page (account-wise transaction history with running balance)
+- [x] Auto journal entries when invoices/bills/payments are created (real double-entry)
+- [x] Account balance auto-calculation from journal entries (not manual input)
+- [x] Ledger report with PDF/Excel export
+- [x] Day Book (all transactions chronologically — in Advanced Reports)
+- [ ] Cash Book and Bank Book (separate filtered views — pending)
+- [x] Trial Balance computed from actual journal entries
+- [x] Profit & Loss computed from actual journal entries
+- [x] Balance Sheet computed from actual journal entries
+
+## Priority 2 — Finance Module (Solid)
+- [ ] Review and fix Invoice → Journal Entry auto-posting
+- [ ] Review and fix Bill → Journal Entry auto-posting
+- [ ] Review and fix Payment-In → Journal Entry auto-posting
+- [ ] Review and fix Payment-Out → Journal Entry auto-posting
+- [ ] Review and fix Expense → Journal Entry auto-posting
+- [ ] Proper AR/AP tracking from journal entries
+
+## Priority 3 — GST Compliance
+- [ ] GST calculation on invoices (CGST/SGST/IGST based on state)
+- [ ] GST calculation on bills/purchases
+- [ ] GSTR-1 report from actual invoice data
+- [ ] GSTR-3B report from actual data
+- [ ] GST Input/Output ledger
+
+## Priority 4 — Indian Taxation
+- [ ] TDS calculation and deduction
+- [ ] TCS calculation
+- [ ] Indian Payroll (PF, ESI, Professional Tax, TDS on salary)
+
+## Priority 5 — Proper Signup & Company Registration
+- [ ] Proper signup flow with email/phone verification
+- [ ] Company registration with GSTIN validation
+- [ ] Company profile page with all business details
+- [ ] Multi-user invite flow for company
+- [x] Accounting module Vitest tests (18 new tests: COA seed, General Ledger, Trial Balance, P&L, Balance Sheet, Journal Entries with account IDs, auto-posting verification) — 93 total tests passing

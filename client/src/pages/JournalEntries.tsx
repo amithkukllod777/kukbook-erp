@@ -10,40 +10,61 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
-const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(n);
+
+interface JournalLine {
+  accountId: number;
+  accountName: string;
+  debit: string;
+  credit: string;
+  narration: string;
+}
+
+const emptyLine = (): JournalLine => ({ accountId: 0, accountName: "", debit: "0", credit: "0", narration: "" });
 
 export default function JournalEntries() {
   const utils = trpc.useUtils();
   const { data: entries = [], isLoading } = trpc.journal.list.useQuery();
-  const { data: accounts = [] } = trpc.accounts.list.useQuery();
+  const { data: accountsList = [] } = trpc.accounts.list.useQuery();
   const { data: nextId } = trpc.journal.nextId.useQuery();
   const createMut = trpc.journal.create.useMutation({ onSuccess: () => { utils.journal.list.invalidate(); utils.journal.nextId.invalidate(); toast.success("Entry created"); setOpen(false); } });
   const deleteMut = trpc.journal.delete.useMutation({ onSuccess: () => { utils.journal.list.invalidate(); toast.success("Entry deleted"); } });
 
+  // Filter to only ledger accounts (not groups)
+  const ledgerAccounts = accountsList.filter((a: any) => !a.isGroup);
+
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], description: "", posted: false, lines: [{ account: "", debit: "0", credit: "0" }, { account: "", debit: "0", credit: "0" }] });
+  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], description: "", posted: false, lines: [emptyLine(), emptyLine()] });
 
   const totalDebit = form.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
   const totalCredit = form.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
   const balanced = Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0;
 
   const openCreate = () => {
-    setForm({ date: new Date().toISOString().split("T")[0], description: "", posted: false, lines: [{ account: "", debit: "0", credit: "0" }, { account: "", debit: "0", credit: "0" }] });
+    setForm({ date: new Date().toISOString().split("T")[0], description: "", posted: false, lines: [emptyLine(), emptyLine()] });
     setOpen(true);
   };
 
-  const addLine = () => setForm({ ...form, lines: [...form.lines, { account: "", debit: "0", credit: "0" }] });
+  const addLine = () => setForm({ ...form, lines: [...form.lines, emptyLine()] });
   const removeLine = (i: number) => { if (form.lines.length <= 2) return; setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) }); };
-  const updateLine = (i: number, field: string, value: string) => {
+
+  const updateLineAccount = (i: number, accountId: number) => {
     const lines = [...form.lines];
-    (lines[i] as any)[field] = value;
+    const acct = ledgerAccounts.find((a: any) => a.id === accountId);
+    lines[i] = { ...lines[i], accountId, accountName: acct?.name || "" };
+    setForm({ ...form, lines });
+  };
+
+  const updateLineField = (i: number, field: keyof JournalLine, value: string) => {
+    const lines = [...form.lines];
+    lines[i] = { ...lines[i], [field]: value };
     setForm({ ...form, lines });
   };
 
   const handleSave = () => {
     if (!form.description) { toast.error("Description is required"); return; }
     if (!balanced) { toast.error("Debits must equal Credits"); return; }
-    if (form.lines.some(l => !l.account)) { toast.error("All lines need an account"); return; }
+    if (form.lines.some(l => !l.accountId)) { toast.error("All lines need an account"); return; }
     createMut.mutate({ entryId: nextId || "JE-001", ...form });
   };
 
@@ -65,6 +86,7 @@ export default function JournalEntries() {
                 <TableHead className="w-[100px]">Entry ID</TableHead>
                 <TableHead className="w-[100px]">Date</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Source</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="w-[80px]">Actions</TableHead>
@@ -72,22 +94,29 @@ export default function JournalEntries() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
               ) : entries.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No entries found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No entries found</TableCell></TableRow>
               ) : entries.map((e: any) => {
                 const total = e.lines?.reduce((s: number, l: any) => s + Number(l.debit || 0), 0) || 0;
+                const isAuto = e.sourceType && e.sourceType !== 'manual';
                 return (
                   <TableRow key={e.id}>
                     <TableCell className="font-mono text-sm">{e.entryId}</TableCell>
                     <TableCell>{e.date}</TableCell>
                     <TableCell className="font-medium">{e.description}</TableCell>
                     <TableCell>
+                      <Badge variant={isAuto ? "outline" : "secondary"} className="text-xs">
+                        {e.sourceType || 'manual'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={e.posted ? "default" : "secondary"}>{e.posted ? "Posted" : "Draft"}</Badge>
                     </TableCell>
                     <TableCell className="text-right font-medium">{fmt(total)}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this entry?")) deleteMut.mutate({ id: e.id }); }}>
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this entry?")) deleteMut.mutate({ id: e.id }); }}
+                        disabled={isAuto} title={isAuto ? "Delete the source document instead" : "Delete entry"}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
@@ -100,17 +129,17 @@ export default function JournalEntries() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader><DialogTitle>New Journal Entry</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div><label className="text-sm font-medium">Date</label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
               <div className="flex items-end gap-2">
-                <label className="text-sm font-medium">Posted</label>
+                <label className="text-sm font-medium">Post immediately</label>
                 <Switch checked={form.posted} onCheckedChange={v => setForm({ ...form, posted: v })} />
               </div>
             </div>
-            <div><label className="text-sm font-medium">Description</label><Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="January sales recognition" /></div>
+            <div><label className="text-sm font-medium">Description / Narration</label><Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="e.g., January sales recognition" /></div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -122,8 +151,8 @@ export default function JournalEntries() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Account</TableHead>
-                      <TableHead className="w-[130px]">Debit</TableHead>
-                      <TableHead className="w-[130px]">Credit</TableHead>
+                      <TableHead className="w-[130px]">Debit (₹)</TableHead>
+                      <TableHead className="w-[130px]">Credit (₹)</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -131,13 +160,13 @@ export default function JournalEntries() {
                     {form.lines.map((line, i) => (
                       <TableRow key={i}>
                         <TableCell>
-                          <select className="w-full border rounded px-2 py-1.5 text-sm bg-background" value={line.account} onChange={e => updateLine(i, "account", e.target.value)}>
+                          <select className="w-full border rounded px-2 py-1.5 text-sm bg-background" value={line.accountId || ""} onChange={e => updateLineAccount(i, Number(e.target.value))}>
                             <option value="">Select account</option>
-                            {accounts.map((a: any) => <option key={a.id} value={a.name}>{a.code} — {a.name}</option>)}
+                            {ledgerAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                           </select>
                         </TableCell>
-                        <TableCell><Input type="number" value={line.debit} onChange={e => updateLine(i, "debit", e.target.value)} className="text-right" /></TableCell>
-                        <TableCell><Input type="number" value={line.credit} onChange={e => updateLine(i, "credit", e.target.value)} className="text-right" /></TableCell>
+                        <TableCell><Input type="number" value={line.debit} onChange={e => updateLineField(i, "debit", e.target.value)} className="text-right" /></TableCell>
+                        <TableCell><Input type="number" value={line.credit} onChange={e => updateLineField(i, "credit", e.target.value)} className="text-right" /></TableCell>
                         <TableCell><Button variant="ghost" size="icon" onClick={() => removeLine(i)} disabled={form.lines.length <= 2}><Trash2 className="h-3 w-3" /></Button></TableCell>
                       </TableRow>
                     ))}

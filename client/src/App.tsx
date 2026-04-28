@@ -16,6 +16,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Accounts = lazy(() => import("./pages/Accounts"));
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
+const GeneralLedger = lazy(() => import("./pages/GeneralLedger"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const Vendors = lazy(() => import("./pages/Vendors"));
@@ -69,6 +70,7 @@ function CompanyRoutes() {
           <Route path="/" component={Dashboard} />
           <Route path="/accounts" component={Accounts} />
           <Route path="/journal" component={JournalEntries} />
+          <Route path="/general-ledger" component={GeneralLedger} />
           <Route path="/customers" component={Customers} />
           <Route path="/invoices" component={Invoices} />
           <Route path="/sale-returns" component={SaleReturns} />

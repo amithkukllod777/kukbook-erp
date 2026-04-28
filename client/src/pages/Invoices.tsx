@@ -59,7 +59,7 @@ export default function Invoices() {
   const handleSave = () => {
     if (!form.customerId) { toast.error("Select a customer"); return; }
     if (!form.dueDate) { toast.error("Due date is required"); return; }
-    createMut.mutate({ invoiceId: nextId || "INV-001", customerId: form.customerId, customerName: form.customerName, date: form.date, dueDate: form.dueDate, status: "Draft", total: String(total), lines: form.lines.map(l => ({ ...l, rate: String(l.rate), amount: String(l.amount) })) });
+    createMut.mutate({ invoiceId: nextId || "INV-001", customerId: form.customerId, customerName: form.customerName, date: form.date, dueDate: form.dueDate, status: "Draft", subtotal: String(subtotal), cgst: "0", sgst: "0", igst: "0", total: String(total), lines: form.lines.map(l => ({ ...l, rate: String(l.rate), amount: String(l.amount) })) });
   };
 
   return (

@@ -1,4 +1,4 @@
-import { eq, sql, desc, asc, and, lte } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, accounts, journalEntries, journalLines,
@@ -48,10 +48,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 }
 
 export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return rows[0] || null;
 }
 
 export async function getAllUsers() {
@@ -64,70 +63,380 @@ export async function updateUserRole(userId: number, role: "user" | "admin") {
   await db.update(users).set({ role }).where(eq(users.id, userId));
 }
 
-// ─── Accounts ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// ACCOUNTING ENGINE — Journal-Driven Double-Entry Bookkeeping
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Chart of Accounts ──────────────────────────────────────────────────────
 export async function getAllAccounts(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(accounts).where(eq(accounts.companyId, companyId)).orderBy(asc(accounts.code));
 }
 
-export async function createAccount(companyId: number, data: { code: string; name: string; type: string; subtype?: string; balance?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(accounts).values({ ...data, companyId } as any);
+export async function getAccountById(companyId: number, accountId: number) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.companyId, companyId))).limit(1);
+  return rows[0] || null;
 }
 
-export async function updateAccount(id: number, companyId: number, data: Partial<{ code: string; name: string; type: string; subtype: string; balance: string }>) {
+export async function findAccountByName(companyId: number, name: string) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(accounts).where(and(eq(accounts.name, name), eq(accounts.companyId, companyId))).limit(1);
+  return rows[0] || null;
+}
+
+export async function createAccount(companyId: number, data: {
+  code: string; name: string; type: string; subtype?: string;
+  parentId?: number; isGroup?: boolean; nature?: string;
+  openingBalance?: string; description?: string; isSystemAccount?: boolean;
+}) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(accounts).values({
+    code: data.code, name: data.name, type: data.type as any,
+    subtype: data.subtype, parentId: data.parentId,
+    isGroup: data.isGroup || false,
+    nature: (data.nature || (data.type === 'Asset' || data.type === 'Expense' ? 'Debit' : 'Credit')) as any,
+    openingBalance: data.openingBalance || '0',
+    description: data.description,
+    isSystemAccount: data.isSystemAccount || false,
+    companyId
+  } as any);
+}
+
+export async function updateAccount(id: number, companyId: number, data: Partial<{
+  code: string; name: string; type: string; subtype: string;
+  parentId: number; isGroup: boolean; nature: string;
+  openingBalance: string; description: string;
+}>) {
   const db = await getDb(); if (!db) return;
   await db.update(accounts).set(data as any).where(and(eq(accounts.id, id), eq(accounts.companyId, companyId)));
 }
 
 export async function deleteAccount(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
+  // Check if account has journal lines
+  const lines = await (await getDb())!.select({ c: sql<number>`COUNT(*)` }).from(journalLines).where(eq(journalLines.accountId, id));
+  if (lines[0]?.c > 0) throw new Error("Cannot delete account with journal entries");
+  // Check if account has children
+  const children = await (await getDb())!.select({ c: sql<number>`COUNT(*)` }).from(accounts).where(and(eq(accounts.parentId, id), eq(accounts.companyId, companyId)));
+  if (children[0]?.c > 0) throw new Error("Cannot delete group account with children");
   await db.delete(accounts).where(and(eq(accounts.id, id), eq(accounts.companyId, companyId)));
 }
 
-// ─── Journal Entries ─────────────────────────────────────────────────────────
-export async function getAllJournalEntries(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  const entries = await db.select().from(journalEntries).where(eq(journalEntries.companyId, companyId)).orderBy(desc(journalEntries.date));
-  const lines = await db.select().from(journalLines);
-  return entries.map(e => ({ ...e, lines: lines.filter(l => l.journalEntryId === e.id) }));
-}
-
-export async function createJournalEntry(companyId: number, data: { entryId: string; date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
+// ─── Default Indian COA Seeding ─────────────────────────────────────────────
+export async function seedDefaultCOA(companyId: number) {
   const db = await getDb(); if (!db) return;
-  const [result] = await db.insert(journalEntries).values({ entryId: data.entryId, date: data.date, description: data.description, posted: data.posted, companyId }).$returningId();
-  if (data.lines.length > 0) {
-    await db.insert(journalLines).values(data.lines.map(l => ({ journalEntryId: result.id, account: l.account, debit: l.debit, credit: l.credit })));
+  const existing = await db.select({ c: sql<number>`COUNT(*)` }).from(accounts).where(eq(accounts.companyId, companyId));
+  if (existing[0]?.c > 0) return; // Already seeded
+
+  const coa: { code: string; name: string; type: string; nature: string; isGroup: boolean; parentCode?: string; isSystem?: boolean }[] = [
+    // Asset Groups
+    { code: '1000', name: 'Assets', type: 'Asset', nature: 'Debit', isGroup: true, isSystem: true },
+    { code: '1100', name: 'Current Assets', type: 'Asset', nature: 'Debit', isGroup: true, parentCode: '1000' },
+    { code: '1101', name: 'Cash', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100', isSystem: true },
+    { code: '1102', name: 'Bank Accounts', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100', isSystem: true },
+    { code: '1103', name: 'Accounts Receivable', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100', isSystem: true },
+    { code: '1104', name: 'Inventory', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100' },
+    { code: '1105', name: 'Advance Tax', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100' },
+    { code: '1106', name: 'CGST Input', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100', isSystem: true },
+    { code: '1107', name: 'SGST Input', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100', isSystem: true },
+    { code: '1108', name: 'IGST Input', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1100', isSystem: true },
+    { code: '1200', name: 'Fixed Assets', type: 'Asset', nature: 'Debit', isGroup: true, parentCode: '1000' },
+    { code: '1201', name: 'Furniture & Fixtures', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1200' },
+    { code: '1202', name: 'Plant & Machinery', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1200' },
+    { code: '1203', name: 'Vehicles', type: 'Asset', nature: 'Debit', isGroup: false, parentCode: '1200' },
+    // Liability Groups
+    { code: '2000', name: 'Liabilities', type: 'Liability', nature: 'Credit', isGroup: true, isSystem: true },
+    { code: '2100', name: 'Current Liabilities', type: 'Liability', nature: 'Credit', isGroup: true, parentCode: '2000' },
+    { code: '2101', name: 'Accounts Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100', isSystem: true },
+    { code: '2102', name: 'CGST Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100', isSystem: true },
+    { code: '2103', name: 'SGST Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100', isSystem: true },
+    { code: '2104', name: 'IGST Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100', isSystem: true },
+    { code: '2105', name: 'TDS Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100' },
+    { code: '2106', name: 'Salary Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100' },
+    { code: '2200', name: 'Long-term Liabilities', type: 'Liability', nature: 'Credit', isGroup: true, parentCode: '2000' },
+    { code: '2201', name: 'Loans', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2200' },
+    // Equity
+    { code: '3000', name: 'Equity', type: 'Equity', nature: 'Credit', isGroup: true, isSystem: true },
+    { code: '3001', name: 'Capital Account', type: 'Equity', nature: 'Credit', isGroup: false, parentCode: '3000' },
+    { code: '3002', name: 'Reserves & Surplus', type: 'Equity', nature: 'Credit', isGroup: false, parentCode: '3000' },
+    { code: '3003', name: 'Retained Earnings', type: 'Equity', nature: 'Credit', isGroup: false, parentCode: '3000', isSystem: true },
+    // Revenue
+    { code: '4000', name: 'Revenue', type: 'Revenue', nature: 'Credit', isGroup: true, isSystem: true },
+    { code: '4001', name: 'Sales', type: 'Revenue', nature: 'Credit', isGroup: false, parentCode: '4000', isSystem: true },
+    { code: '4002', name: 'Other Income', type: 'Revenue', nature: 'Credit', isGroup: false, parentCode: '4000', isSystem: true },
+    { code: '4003', name: 'Interest Income', type: 'Revenue', nature: 'Credit', isGroup: false, parentCode: '4000' },
+    // Expenses
+    { code: '5000', name: 'Expenses', type: 'Expense', nature: 'Debit', isGroup: true, isSystem: true },
+    { code: '5001', name: 'Cost of Goods Sold', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+    { code: '5002', name: 'Salaries & Wages', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+    { code: '5003', name: 'Rent', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+    { code: '5004', name: 'Utilities', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+    { code: '5005', name: 'Office Supplies', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+    { code: '5006', name: 'Depreciation', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+    { code: '5007', name: 'Purchases', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000', isSystem: true },
+    { code: '5008', name: 'General Expenses', type: 'Expense', nature: 'Debit', isGroup: false, parentCode: '5000' },
+  ];
+
+  // Insert in order, build parentId map
+  const codeToId: Record<string, number> = {};
+  for (const acct of coa) {
+    const parentId = acct.parentCode ? codeToId[acct.parentCode] : undefined;
+    const [result] = await db.insert(accounts).values({
+      code: acct.code, name: acct.name, type: acct.type as any,
+      nature: acct.nature as any, isGroup: acct.isGroup,
+      parentId: parentId || null,
+      isSystemAccount: acct.isSystem || false,
+      openingBalance: '0', companyId
+    } as any).$returningId();
+    codeToId[acct.code] = result.id;
   }
 }
 
-export async function updateJournalEntry(id: number, companyId: number, data: { date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
+// ─── Journal Entry Engine ───────────────────────────────────────────────────
+export async function getAllJournalEntries(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  const entries = await db.select().from(journalEntries).where(eq(journalEntries.companyId, companyId)).orderBy(desc(journalEntries.date));
+  if (entries.length === 0) return [];
+  const entryIds = entries.map(e => e.id);
+  const lines = await db.select().from(journalLines).where(inArray(journalLines.journalEntryId, entryIds));
+  return entries.map(e => ({ ...e, lines: lines.filter(l => l.journalEntryId === e.id) }));
+}
+
+export async function createJournalEntry(companyId: number, data: {
+  entryId: string; date: string; description: string; posted: boolean;
+  sourceType?: string; sourceId?: number;
+  lines: { accountId: number; accountName: string; debit: string; credit: string; narration?: string }[]
+}) {
+  const db = await getDb(); if (!db) return null;
+  const [result] = await db.insert(journalEntries).values({
+    entryId: data.entryId, date: data.date, description: data.description,
+    posted: data.posted, sourceType: data.sourceType || 'manual',
+    sourceId: data.sourceId, companyId
+  } as any).$returningId();
+  if (data.lines.length > 0) {
+    await db.insert(journalLines).values(data.lines.map(l => ({
+      journalEntryId: result.id,
+      accountId: l.accountId,
+      accountName: l.accountName,
+      debit: l.debit, credit: l.credit,
+      narration: l.narration
+    })));
+  }
+  return result.id;
+}
+
+export async function updateJournalEntry(id: number, companyId: number, data: {
+  date: string; description: string; posted: boolean;
+  lines: { accountId: number; accountName: string; debit: string; credit: string; narration?: string }[]
+}) {
   const db = await getDb(); if (!db) return;
-  await db.update(journalEntries).set({ date: data.date, description: data.description, posted: data.posted }).where(and(eq(journalEntries.id, id), eq(journalEntries.companyId, companyId)));
+  await db.update(journalEntries).set({ date: data.date, description: data.description, posted: data.posted })
+    .where(and(eq(journalEntries.id, id), eq(journalEntries.companyId, companyId)));
   await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
   if (data.lines.length > 0) {
-    await db.insert(journalLines).values(data.lines.map(l => ({ journalEntryId: id, account: l.account, debit: l.debit, credit: l.credit })));
+    await db.insert(journalLines).values(data.lines.map(l => ({
+      journalEntryId: id, accountId: l.accountId, accountName: l.accountName,
+      debit: l.debit, credit: l.credit, narration: l.narration
+    })));
   }
 }
 
 export async function deleteJournalEntry(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
+  // Check if it's a system-generated entry
+  const entry = await db.select().from(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.companyId, companyId))).limit(1);
+  if (entry[0]?.sourceType && entry[0].sourceType !== 'manual') {
+    throw new Error("Cannot delete auto-generated journal entries. Delete the source document instead.");
+  }
   await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
   await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.companyId, companyId)));
 }
 
-// ─── Customers ───────────────────────────────────────────────────────────────
+// ─── Auto-Post Journal Entry Helper ─────────────────────────────────────────
+async function autoPostJournalEntry(companyId: number, data: {
+  date: string; description: string; sourceType: string; sourceId: number;
+  lines: { accountId: number; accountName: string; debit: string; credit: string }[]
+}): Promise<number | null> {
+  const db = await getDb(); if (!db) return null;
+  const nextId = await getNextId('journal_entries', 'JE');
+  return createJournalEntry(companyId, {
+    entryId: nextId, date: data.date, description: data.description,
+    posted: true, sourceType: data.sourceType, sourceId: data.sourceId,
+    lines: data.lines
+  });
+}
+
+// Helper to find or create a system account by name
+async function getSystemAccount(companyId: number, name: string): Promise<{ id: number; name: string } | null> {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(accounts).where(and(eq(accounts.name, name), eq(accounts.companyId, companyId))).limit(1);
+  return rows[0] ? { id: rows[0].id, name: rows[0].name } : null;
+}
+
+// ─── Computed Account Balance from Journal Lines ────────────────────────────
+export async function getAccountBalance(companyId: number, accountId: number): Promise<number> {
+  const db = await getDb(); if (!db) return 0;
+  // Get the account to know its nature
+  const acct = await db.select().from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.companyId, companyId))).limit(1);
+  if (!acct[0]) return 0;
+  // Get opening balance
+  const opening = Number(acct[0].openingBalance) || 0;
+  // Sum journal lines for this account (only from posted entries)
+  const postedEntries = await db.select({ id: journalEntries.id }).from(journalEntries)
+    .where(and(eq(journalEntries.companyId, companyId), eq(journalEntries.posted, true)));
+  if (postedEntries.length === 0) return opening;
+  const entryIds = postedEntries.map(e => e.id);
+  const sums = await db.select({
+    totalDebit: sql<string>`COALESCE(SUM(debit), 0)`,
+    totalCredit: sql<string>`COALESCE(SUM(credit), 0)`
+  }).from(journalLines).where(and(eq(journalLines.accountId, accountId), inArray(journalLines.journalEntryId, entryIds)));
+  const totalDebit = Number(sums[0]?.totalDebit) || 0;
+  const totalCredit = Number(sums[0]?.totalCredit) || 0;
+  // Debit-nature accounts: balance = opening + debits - credits
+  // Credit-nature accounts: balance = opening + credits - debits
+  if (acct[0].nature === 'Debit') return opening + totalDebit - totalCredit;
+  return opening + totalCredit - totalDebit;
+}
+
+// Get all account balances at once (efficient)
+export async function getAllAccountBalances(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  const allAccounts = await db.select().from(accounts).where(eq(accounts.companyId, companyId)).orderBy(asc(accounts.code));
+  // Get all posted entry IDs
+  const postedEntries = await db.select({ id: journalEntries.id }).from(journalEntries)
+    .where(and(eq(journalEntries.companyId, companyId), eq(journalEntries.posted, true)));
+  const entryIds = postedEntries.map(e => e.id);
+  // Get all journal line sums grouped by account
+  let lineSums: { accountId: number; totalDebit: string; totalCredit: string }[] = [];
+  if (entryIds.length > 0) {
+    lineSums = await db.select({
+      accountId: journalLines.accountId,
+      totalDebit: sql<string>`COALESCE(SUM(debit), 0)`,
+      totalCredit: sql<string>`COALESCE(SUM(credit), 0)`
+    }).from(journalLines).where(inArray(journalLines.journalEntryId, entryIds))
+      .groupBy(journalLines.accountId) as any;
+  }
+  const sumsMap = new Map(lineSums.map(s => [s.accountId, s]));
+  return allAccounts.map(acct => {
+    const opening = Number(acct.openingBalance) || 0;
+    const sums = sumsMap.get(acct.id);
+    const totalDebit = Number(sums?.totalDebit) || 0;
+    const totalCredit = Number(sums?.totalCredit) || 0;
+    const balance = acct.nature === 'Debit'
+      ? opening + totalDebit - totalCredit
+      : opening + totalCredit - totalDebit;
+    return { ...acct, balance: Math.round(balance * 100) / 100, totalDebit, totalCredit };
+  });
+}
+
+// ─── General Ledger (account-wise transaction history) ──────────────────────
+export async function getGeneralLedger(companyId: number, accountId: number) {
+  const db = await getDb(); if (!db) return { account: null, entries: [] };
+  const acct = await db.select().from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.companyId, companyId))).limit(1);
+  if (!acct[0]) return { account: null, entries: [] };
+  // Get all posted journal entries that have lines for this account
+  const lines = await db.select({
+    lineId: journalLines.id,
+    journalEntryId: journalLines.journalEntryId,
+    debit: journalLines.debit,
+    credit: journalLines.credit,
+    narration: journalLines.narration,
+  }).from(journalLines).where(eq(journalLines.accountId, accountId));
+  if (lines.length === 0) return { account: acct[0], entries: [] };
+  const entryIds = Array.from(new Set(lines.map(l => l.journalEntryId)));
+  const entries = await db.select().from(journalEntries)
+    .where(and(inArray(journalEntries.id, entryIds), eq(journalEntries.companyId, companyId)))
+    .orderBy(asc(journalEntries.date));
+  // Build ledger with running balance
+  let runningBalance = Number(acct[0].openingBalance) || 0;
+  const ledgerEntries = entries.filter(e => e.posted).map(entry => {
+    const entryLines = lines.filter(l => l.journalEntryId === entry.id);
+    const debit = entryLines.reduce((s, l) => s + Number(l.debit), 0);
+    const credit = entryLines.reduce((s, l) => s + Number(l.credit), 0);
+    if (acct[0].nature === 'Debit') runningBalance += debit - credit;
+    else runningBalance += credit - debit;
+    return {
+      date: entry.date, entryId: entry.entryId, description: entry.description,
+      sourceType: entry.sourceType, debit, credit,
+      balance: Math.round(runningBalance * 100) / 100
+    };
+  });
+  return { account: acct[0], entries: ledgerEntries };
+}
+
+// ─── Trial Balance ──────────────────────────────────────────────────────────
+export async function getTrialBalance(companyId: number) {
+  const balances = await getAllAccountBalances(companyId);
+  // Only include non-group (ledger) accounts with non-zero balance
+  const ledgerAccounts = balances.filter(a => !a.isGroup);
+  let totalDebit = 0, totalCredit = 0;
+  const rows = ledgerAccounts.map(a => {
+    const debitBal = a.balance > 0 && a.nature === 'Debit' ? a.balance : (a.balance < 0 && a.nature === 'Credit' ? Math.abs(a.balance) : 0);
+    const creditBal = a.balance > 0 && a.nature === 'Credit' ? a.balance : (a.balance < 0 && a.nature === 'Debit' ? Math.abs(a.balance) : 0);
+    // Simpler: for Debit-nature accounts, positive balance goes to debit column
+    // For Credit-nature accounts, positive balance goes to credit column
+    const dr = a.nature === 'Debit' ? (a.balance >= 0 ? a.balance : 0) : (a.balance < 0 ? Math.abs(a.balance) : 0);
+    const cr = a.nature === 'Credit' ? (a.balance >= 0 ? a.balance : 0) : (a.balance < 0 ? Math.abs(a.balance) : 0);
+    totalDebit += dr;
+    totalCredit += cr;
+    return { id: a.id, code: a.code, name: a.name, type: a.type, debit: Math.round(dr * 100) / 100, credit: Math.round(cr * 100) / 100 };
+  }).filter(r => r.debit !== 0 || r.credit !== 0);
+  return { rows, totalDebit: Math.round(totalDebit * 100) / 100, totalCredit: Math.round(totalCredit * 100) / 100 };
+}
+
+// ─── Profit & Loss ──────────────────────────────────────────────────────────
+export async function getProfitAndLoss(companyId: number) {
+  const balances = await getAllAccountBalances(companyId);
+  const revenueAccounts = balances.filter(a => a.type === 'Revenue' && !a.isGroup);
+  const expenseAccounts = balances.filter(a => a.type === 'Expense' && !a.isGroup);
+  const totalRevenue = revenueAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalExpenses = expenseAccounts.reduce((s, a) => s + a.balance, 0);
+  return {
+    revenue: revenueAccounts.map(a => ({ id: a.id, code: a.code, name: a.name, amount: a.balance })),
+    expenses: expenseAccounts.map(a => ({ id: a.id, code: a.code, name: a.name, amount: a.balance })),
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    totalExpenses: Math.round(totalExpenses * 100) / 100,
+    netIncome: Math.round((totalRevenue - totalExpenses) * 100) / 100
+  };
+}
+
+// ─── Balance Sheet ──────────────────────────────────────────────────────────
+export async function getBalanceSheet(companyId: number) {
+  const balances = await getAllAccountBalances(companyId);
+  const assetAccounts = balances.filter(a => a.type === 'Asset' && !a.isGroup);
+  const liabilityAccounts = balances.filter(a => a.type === 'Liability' && !a.isGroup);
+  const equityAccounts = balances.filter(a => a.type === 'Equity' && !a.isGroup);
+  // Net income goes to retained earnings
+  const revenueAccounts = balances.filter(a => a.type === 'Revenue' && !a.isGroup);
+  const expenseAccounts = balances.filter(a => a.type === 'Expense' && !a.isGroup);
+  const netIncome = revenueAccounts.reduce((s, a) => s + a.balance, 0) - expenseAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalAssets = assetAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalLiabilities = liabilityAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalEquity = equityAccounts.reduce((s, a) => s + a.balance, 0) + netIncome;
+  return {
+    assets: assetAccounts.map(a => ({ id: a.id, code: a.code, name: a.name, amount: a.balance })),
+    liabilities: liabilityAccounts.map(a => ({ id: a.id, code: a.code, name: a.name, amount: a.balance })),
+    equity: equityAccounts.map(a => ({ id: a.id, code: a.code, name: a.name, amount: a.balance })),
+    totalAssets: Math.round(totalAssets * 100) / 100,
+    totalLiabilities: Math.round(totalLiabilities * 100) / 100,
+    totalEquity: Math.round(totalEquity * 100) / 100,
+    netIncome: Math.round(netIncome * 100) / 100,
+  };
+}
+
+// ─── Customers ──────────────────────────────────────────────────────────────
 export async function getAllCustomers(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name));
 }
 
-export async function createCustomer(companyId: number, data: { name: string; email?: string; phone?: string; city?: string; address?: string; balance?: string }) {
+export async function createCustomer(companyId: number, data: { name: string; email?: string; phone?: string; gstin?: string; state?: string; city?: string; address?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(customers).values({ ...data, companyId } as any);
 }
 
-export async function updateCustomer(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; city: string; address: string; balance: string }>) {
+export async function updateCustomer(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; gstin: string; state: string; city: string; address: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(customers).set(data as any).where(and(eq(customers.id, id), eq(customers.companyId, companyId)));
 }
@@ -137,20 +446,66 @@ export async function deleteCustomer(id: number, companyId: number) {
   await db.delete(customers).where(and(eq(customers.id, id), eq(customers.companyId, companyId)));
 }
 
-// ─── Invoices ────────────────────────────────────────────────────────────────
+// ─── Invoices (with auto journal entry) ─────────────────────────────────────
 export async function getAllInvoices(companyId: number) {
   const db = await getDb(); if (!db) return [];
   const invs = await db.select().from(invoices).where(eq(invoices.companyId, companyId)).orderBy(desc(invoices.date));
-  const lines = await db.select().from(invoiceLines);
+  if (invs.length === 0) return [];
+  const invIds = invs.map(i => i.id);
+  const lines = await db.select().from(invoiceLines).where(inArray(invoiceLines.invoiceId, invIds));
   return invs.map(i => ({ ...i, lines: lines.filter(l => l.invoiceId === i.id) }));
 }
 
-export async function createInvoice(companyId: number, data: { invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string; total: string; lines: { description: string; qty: number; rate: string; discount?: string; amount: string }[] }) {
+export async function createInvoice(companyId: number, data: {
+  invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string;
+  subtotal: string; cgst: string; sgst: string; igst: string; total: string;
+  lines: { description: string; hsnCode?: string; qty: number; rate: string; discount?: string; gstRate?: string; amount: string }[]
+}) {
   const db = await getDb(); if (!db) return;
-  const [result] = await db.insert(invoices).values({ invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName, date: data.date, dueDate: data.dueDate, status: data.status as any, total: data.total, companyId }).$returningId();
+  const [result] = await db.insert(invoices).values({
+    invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName,
+    date: data.date, dueDate: data.dueDate, status: data.status as any,
+    subtotal: data.subtotal, cgst: data.cgst || '0', sgst: data.sgst || '0', igst: data.igst || '0',
+    total: data.total, companyId
+  } as any).$returningId();
   if (data.lines.length > 0) {
-    await db.insert(invoiceLines).values(data.lines.map(l => ({ invoiceId: result.id, description: l.description, qty: l.qty, rate: l.rate, discount: l.discount || '0', amount: l.amount })));
+    await db.insert(invoiceLines).values(data.lines.map(l => ({
+      invoiceId: result.id, description: l.description, hsnCode: l.hsnCode,
+      qty: l.qty, rate: l.rate, discount: l.discount || '0',
+      gstRate: l.gstRate || '0', amount: l.amount
+    })));
   }
+  // Auto-post journal entry: Dr. Accounts Receivable, Cr. Sales + GST
+  try {
+    const arAcct = await getSystemAccount(companyId, 'Accounts Receivable');
+    const salesAcct = await getSystemAccount(companyId, 'Sales');
+    if (arAcct && salesAcct) {
+      const jeLines: { accountId: number; accountName: string; debit: string; credit: string }[] = [];
+      jeLines.push({ accountId: arAcct.id, accountName: arAcct.name, debit: data.total, credit: '0' });
+      const subtotal = Number(data.subtotal) || Number(data.total);
+      const cgst = Number(data.cgst) || 0;
+      const sgst = Number(data.sgst) || 0;
+      const igst = Number(data.igst) || 0;
+      jeLines.push({ accountId: salesAcct.id, accountName: salesAcct.name, debit: '0', credit: String(subtotal) });
+      if (cgst > 0) {
+        const cgstAcct = await getSystemAccount(companyId, 'CGST Payable');
+        if (cgstAcct) jeLines.push({ accountId: cgstAcct.id, accountName: cgstAcct.name, debit: '0', credit: String(cgst) });
+      }
+      if (sgst > 0) {
+        const sgstAcct = await getSystemAccount(companyId, 'SGST Payable');
+        if (sgstAcct) jeLines.push({ accountId: sgstAcct.id, accountName: sgstAcct.name, debit: '0', credit: String(sgst) });
+      }
+      if (igst > 0) {
+        const igstAcct = await getSystemAccount(companyId, 'IGST Payable');
+        if (igstAcct) jeLines.push({ accountId: igstAcct.id, accountName: igstAcct.name, debit: '0', credit: String(igst) });
+      }
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Sales Invoice ${data.invoiceId} - ${data.customerName}`,
+        sourceType: 'invoice', sourceId: result.id, lines: jeLines
+      });
+      if (jeId) await db.update(invoices).set({ journalEntryId: jeId } as any).where(eq(invoices.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Invoice journal entry failed:", e); }
 }
 
 export async function updateInvoiceStatus(id: number, companyId: number, status: string) {
@@ -160,22 +515,28 @@ export async function updateInvoiceStatus(id: number, companyId: number, status:
 
 export async function deleteInvoice(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
+  // Delete associated journal entry
+  const inv = await db.select().from(invoices).where(and(eq(invoices.id, id), eq(invoices.companyId, companyId))).limit(1);
+  if (inv[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, inv[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, inv[0].journalEntryId));
+  }
   await db.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id));
   await db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.companyId, companyId)));
 }
 
-// ─── Vendors ─────────────────────────────────────────────────────────────────
+// ─── Vendors ────────────────────────────────────────────────────────────────
 export async function getAllVendors(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(vendors).where(eq(vendors.companyId, companyId)).orderBy(asc(vendors.name));
 }
 
-export async function createVendor(companyId: number, data: { name: string; email?: string; phone?: string; category?: string; address?: string; balance?: string }) {
+export async function createVendor(companyId: number, data: { name: string; email?: string; phone?: string; gstin?: string; state?: string; category?: string; address?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(vendors).values({ ...data, companyId } as any);
 }
 
-export async function updateVendor(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; category: string; address: string; balance: string }>) {
+export async function updateVendor(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; gstin: string; state: string; category: string; address: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(vendors).set(data as any).where(and(eq(vendors.id, id), eq(vendors.companyId, companyId)));
 }
@@ -185,15 +546,55 @@ export async function deleteVendor(id: number, companyId: number) {
   await db.delete(vendors).where(and(eq(vendors.id, id), eq(vendors.companyId, companyId)));
 }
 
-// ─── Bills ───────────────────────────────────────────────────────────────────
+// ─── Bills (with auto journal entry) ────────────────────────────────────────
 export async function getAllBills(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(bills).where(eq(bills.companyId, companyId)).orderBy(desc(bills.date));
 }
 
-export async function createBill(companyId: number, data: { billId: string; vendorId: number; vendorName: string; date: string; dueDate: string; amount: string; description?: string }) {
+export async function createBill(companyId: number, data: {
+  billId: string; vendorId: number; vendorName: string; date: string; dueDate: string;
+  subtotal?: string; cgst?: string; sgst?: string; igst?: string;
+  amount: string; description?: string
+}) {
   const db = await getDb(); if (!db) return;
-  await db.insert(bills).values({ ...data, companyId } as any);
+  const [result] = await db.insert(bills).values({
+    billId: data.billId, vendorId: data.vendorId, vendorName: data.vendorName,
+    date: data.date, dueDate: data.dueDate,
+    subtotal: data.subtotal || data.amount, cgst: data.cgst || '0', sgst: data.sgst || '0', igst: data.igst || '0',
+    amount: data.amount, description: data.description, companyId
+  } as any).$returningId();
+  // Auto-post: Dr. Purchases + GST Input, Cr. Accounts Payable
+  try {
+    const apAcct = await getSystemAccount(companyId, 'Accounts Payable');
+    const purchaseAcct = await getSystemAccount(companyId, 'Purchases');
+    if (apAcct && purchaseAcct) {
+      const jeLines: { accountId: number; accountName: string; debit: string; credit: string }[] = [];
+      const subtotal = Number(data.subtotal) || Number(data.amount);
+      const cgst = Number(data.cgst) || 0;
+      const sgst = Number(data.sgst) || 0;
+      const igst = Number(data.igst) || 0;
+      jeLines.push({ accountId: purchaseAcct.id, accountName: purchaseAcct.name, debit: String(subtotal), credit: '0' });
+      if (cgst > 0) {
+        const cgstAcct = await getSystemAccount(companyId, 'CGST Input');
+        if (cgstAcct) jeLines.push({ accountId: cgstAcct.id, accountName: cgstAcct.name, debit: String(cgst), credit: '0' });
+      }
+      if (sgst > 0) {
+        const sgstAcct = await getSystemAccount(companyId, 'SGST Input');
+        if (sgstAcct) jeLines.push({ accountId: sgstAcct.id, accountName: sgstAcct.name, debit: String(sgst), credit: '0' });
+      }
+      if (igst > 0) {
+        const igstAcct = await getSystemAccount(companyId, 'IGST Input');
+        if (igstAcct) jeLines.push({ accountId: igstAcct.id, accountName: igstAcct.name, debit: String(igst), credit: '0' });
+      }
+      jeLines.push({ accountId: apAcct.id, accountName: apAcct.name, debit: '0', credit: data.amount });
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Purchase Bill ${data.billId} - ${data.vendorName}`,
+        sourceType: 'bill', sourceId: result.id, lines: jeLines
+      });
+      if (jeId) await db.update(bills).set({ journalEntryId: jeId } as any).where(eq(bills.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Bill journal entry failed:", e); }
 }
 
 export async function updateBillStatus(id: number, companyId: number, status: string) {
@@ -203,10 +604,246 @@ export async function updateBillStatus(id: number, companyId: number, status: st
 
 export async function deleteBill(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
+  const bill = await db.select().from(bills).where(and(eq(bills.id, id), eq(bills.companyId, companyId))).limit(1);
+  if (bill[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, bill[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, bill[0].journalEntryId));
+  }
   await db.delete(bills).where(and(eq(bills.id, id), eq(bills.companyId, companyId)));
 }
 
-// ─── Inventory ───────────────────────────────────────────────────────────────
+// ─── Payments In (with auto journal entry) ──────────────────────────────────
+export async function getAllPaymentsIn(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(paymentsIn).where(eq(paymentsIn.companyId, companyId)).orderBy(desc(paymentsIn.date));
+}
+
+export async function createPaymentIn(companyId: number, data: { paymentId: string; customerId: number; customerName: string; date: string; amount: string; mode: string; invoiceRef?: string; notes?: string }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(paymentsIn).values({ ...data, companyId } as any).$returningId();
+  // Auto-post: Dr. Cash/Bank, Cr. Accounts Receivable
+  try {
+    const cashAcct = await getSystemAccount(companyId, data.mode === 'Bank' ? 'Bank Accounts' : 'Cash');
+    const arAcct = await getSystemAccount(companyId, 'Accounts Receivable');
+    if (cashAcct && arAcct) {
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Payment Received ${data.paymentId} - ${data.customerName}`,
+        sourceType: 'payment_in', sourceId: result.id,
+        lines: [
+          { accountId: cashAcct.id, accountName: cashAcct.name, debit: data.amount, credit: '0' },
+          { accountId: arAcct.id, accountName: arAcct.name, debit: '0', credit: data.amount },
+        ]
+      });
+      if (jeId) await db.update(paymentsIn).set({ journalEntryId: jeId } as any).where(eq(paymentsIn.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Payment In journal entry failed:", e); }
+}
+
+export async function deletePaymentIn(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  const pi = await db.select().from(paymentsIn).where(and(eq(paymentsIn.id, id), eq(paymentsIn.companyId, companyId))).limit(1);
+  if (pi[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, pi[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, pi[0].journalEntryId));
+  }
+  await db.delete(paymentsIn).where(and(eq(paymentsIn.id, id), eq(paymentsIn.companyId, companyId)));
+}
+
+// ─── Payments Out (with auto journal entry) ─────────────────────────────────
+export async function getAllPaymentsOut(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(paymentsOut).where(eq(paymentsOut.companyId, companyId)).orderBy(desc(paymentsOut.date));
+}
+
+export async function createPaymentOut(companyId: number, data: { paymentId: string; vendorId: number; vendorName: string; date: string; amount: string; mode: string; billRef?: string; notes?: string }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(paymentsOut).values({ ...data, companyId } as any).$returningId();
+  // Auto-post: Dr. Accounts Payable, Cr. Cash/Bank
+  try {
+    const apAcct = await getSystemAccount(companyId, 'Accounts Payable');
+    const cashAcct = await getSystemAccount(companyId, data.mode === 'Bank' ? 'Bank Accounts' : 'Cash');
+    if (apAcct && cashAcct) {
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Payment Made ${data.paymentId} - ${data.vendorName}`,
+        sourceType: 'payment_out', sourceId: result.id,
+        lines: [
+          { accountId: apAcct.id, accountName: apAcct.name, debit: data.amount, credit: '0' },
+          { accountId: cashAcct.id, accountName: cashAcct.name, debit: '0', credit: data.amount },
+        ]
+      });
+      if (jeId) await db.update(paymentsOut).set({ journalEntryId: jeId } as any).where(eq(paymentsOut.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Payment Out journal entry failed:", e); }
+}
+
+export async function deletePaymentOut(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  const po = await db.select().from(paymentsOut).where(and(eq(paymentsOut.id, id), eq(paymentsOut.companyId, companyId))).limit(1);
+  if (po[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, po[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, po[0].journalEntryId));
+  }
+  await db.delete(paymentsOut).where(and(eq(paymentsOut.id, id), eq(paymentsOut.companyId, companyId)));
+}
+
+// ─── Expenses (with auto journal entry) ─────────────────────────────────────
+export async function getAllExpenses(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(expenses).where(eq(expenses.companyId, companyId)).orderBy(desc(expenses.date));
+}
+
+export async function createExpense(companyId: number, data: { expenseId: string; date: string; category: string; amount: string; paymentMode: string; description?: string; gstIncluded?: boolean; gstAmount?: string }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(expenses).values({ ...data, companyId } as any).$returningId();
+  // Auto-post: Dr. Expense Account, Cr. Cash/Bank
+  try {
+    // Try to find an expense account matching the category, fallback to General Expenses
+    let expAcct = await getSystemAccount(companyId, data.category);
+    if (!expAcct) expAcct = await getSystemAccount(companyId, 'General Expenses');
+    const cashAcct = await getSystemAccount(companyId, data.paymentMode === 'Bank' ? 'Bank Accounts' : 'Cash');
+    if (expAcct && cashAcct) {
+      const jeLines: { accountId: number; accountName: string; debit: string; credit: string }[] = [];
+      const gstAmount = data.gstIncluded ? Number(data.gstAmount || 0) : 0;
+      const netAmount = Number(data.amount) - gstAmount;
+      jeLines.push({ accountId: expAcct.id, accountName: expAcct.name, debit: String(netAmount), credit: '0' });
+      if (gstAmount > 0) {
+        const cgstAcct = await getSystemAccount(companyId, 'CGST Input');
+        if (cgstAcct) jeLines.push({ accountId: cgstAcct.id, accountName: cgstAcct.name, debit: String(Math.round(gstAmount / 2 * 100) / 100), credit: '0' });
+        const sgstAcct = await getSystemAccount(companyId, 'SGST Input');
+        if (sgstAcct) jeLines.push({ accountId: sgstAcct.id, accountName: sgstAcct.name, debit: String(Math.round(gstAmount / 2 * 100) / 100), credit: '0' });
+      }
+      jeLines.push({ accountId: cashAcct.id, accountName: cashAcct.name, debit: '0', credit: data.amount });
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Expense ${data.expenseId} - ${data.category}`,
+        sourceType: 'expense', sourceId: result.id, lines: jeLines
+      });
+      if (jeId) await db.update(expenses).set({ journalEntryId: jeId } as any).where(eq(expenses.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Expense journal entry failed:", e); }
+}
+
+export async function deleteExpense(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  const exp = await db.select().from(expenses).where(and(eq(expenses.id, id), eq(expenses.companyId, companyId))).limit(1);
+  if (exp[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, exp[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, exp[0].journalEntryId));
+  }
+  await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.companyId, companyId)));
+}
+
+// ─── Other Income (with auto journal entry) ─────────────────────────────────
+export async function getAllOtherIncome(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(otherIncome).where(eq(otherIncome.companyId, companyId)).orderBy(desc(otherIncome.date));
+}
+
+export async function createOtherIncome(companyId: number, data: { incomeId: string; date: string; category: string; amount: string; paymentMode: string; description?: string }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(otherIncome).values({ ...data, companyId } as any).$returningId();
+  // Auto-post: Dr. Cash/Bank, Cr. Other Income
+  try {
+    const cashAcct = await getSystemAccount(companyId, data.paymentMode === 'Bank' ? 'Bank Accounts' : 'Cash');
+    const incomeAcct = await getSystemAccount(companyId, 'Other Income');
+    if (cashAcct && incomeAcct) {
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Other Income ${data.incomeId} - ${data.category}`,
+        sourceType: 'other_income', sourceId: result.id,
+        lines: [
+          { accountId: cashAcct.id, accountName: cashAcct.name, debit: data.amount, credit: '0' },
+          { accountId: incomeAcct.id, accountName: incomeAcct.name, debit: '0', credit: data.amount },
+        ]
+      });
+      if (jeId) await db.update(otherIncome).set({ journalEntryId: jeId } as any).where(eq(otherIncome.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Other Income journal entry failed:", e); }
+}
+
+export async function deleteOtherIncome(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  const oi = await db.select().from(otherIncome).where(and(eq(otherIncome.id, id), eq(otherIncome.companyId, companyId))).limit(1);
+  if (oi[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, oi[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, oi[0].journalEntryId));
+  }
+  await db.delete(otherIncome).where(and(eq(otherIncome.id, id), eq(otherIncome.companyId, companyId)));
+}
+
+// ─── Sale Returns (with auto journal entry) ─────────────────────────────────
+export async function getAllSaleReturns(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(saleReturns).where(eq(saleReturns.companyId, companyId)).orderBy(desc(saleReturns.createdAt));
+}
+
+export async function createSaleReturn(companyId: number, data: { returnId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; amount: string; reason?: string }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(saleReturns).values({ ...data, companyId } as any).$returningId();
+  // Auto-post: Dr. Sales (reverse), Cr. Accounts Receivable
+  try {
+    const salesAcct = await getSystemAccount(companyId, 'Sales');
+    const arAcct = await getSystemAccount(companyId, 'Accounts Receivable');
+    if (salesAcct && arAcct) {
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Sale Return ${data.returnId} - ${data.customerName}`,
+        sourceType: 'sale_return', sourceId: result.id,
+        lines: [
+          { accountId: salesAcct.id, accountName: salesAcct.name, debit: data.amount, credit: '0' },
+          { accountId: arAcct.id, accountName: arAcct.name, debit: '0', credit: data.amount },
+        ]
+      });
+      if (jeId) await db.update(saleReturns).set({ journalEntryId: jeId } as any).where(eq(saleReturns.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Sale Return journal entry failed:", e); }
+}
+
+export async function deleteSaleReturn(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  const sr = await db.select().from(saleReturns).where(and(eq(saleReturns.id, id), eq(saleReturns.companyId, companyId))).limit(1);
+  if (sr[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, sr[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, sr[0].journalEntryId));
+  }
+  await db.delete(saleReturns).where(and(eq(saleReturns.id, id), eq(saleReturns.companyId, companyId)));
+}
+
+// ─── Purchase Returns (with auto journal entry) ─────────────────────────────
+export async function getAllPurchaseReturns(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(purchaseReturns).where(eq(purchaseReturns.companyId, companyId)).orderBy(desc(purchaseReturns.createdAt));
+}
+
+export async function createPurchaseReturn(companyId: number, data: { returnId: string; vendorId: number; vendorName: string; date: string; billRef?: string; amount: string; reason?: string }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(purchaseReturns).values({ ...data, companyId } as any).$returningId();
+  // Auto-post: Dr. Accounts Payable, Cr. Purchases
+  try {
+    const apAcct = await getSystemAccount(companyId, 'Accounts Payable');
+    const purchaseAcct = await getSystemAccount(companyId, 'Purchases');
+    if (apAcct && purchaseAcct) {
+      const jeId = await autoPostJournalEntry(companyId, {
+        date: data.date, description: `Purchase Return ${data.returnId} - ${data.vendorName}`,
+        sourceType: 'purchase_return', sourceId: result.id,
+        lines: [
+          { accountId: apAcct.id, accountName: apAcct.name, debit: data.amount, credit: '0' },
+          { accountId: purchaseAcct.id, accountName: purchaseAcct.name, debit: '0', credit: data.amount },
+        ]
+      });
+      if (jeId) await db.update(purchaseReturns).set({ journalEntryId: jeId } as any).where(eq(purchaseReturns.id, result.id));
+    }
+  } catch (e) { console.error("[AutoPost] Purchase Return journal entry failed:", e); }
+}
+
+export async function deletePurchaseReturn(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  const pr = await db.select().from(purchaseReturns).where(and(eq(purchaseReturns.id, id), eq(purchaseReturns.companyId, companyId))).limit(1);
+  if (pr[0]?.journalEntryId) {
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, pr[0].journalEntryId));
+    await db.delete(journalEntries).where(eq(journalEntries.id, pr[0].journalEntryId));
+  }
+  await db.delete(purchaseReturns).where(and(eq(purchaseReturns.id, id), eq(purchaseReturns.companyId, companyId)));
+}
+
+// ─── Inventory ──────────────────────────────────────────────────────────────
 export async function getAllInventory(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(inventory).where(eq(inventory.companyId, companyId)).orderBy(asc(inventory.name));
@@ -227,7 +864,7 @@ export async function deleteInventoryItem(id: number, companyId: number) {
   await db.delete(inventory).where(and(eq(inventory.id, id), eq(inventory.companyId, companyId)));
 }
 
-// ─── Purchase Orders ─────────────────────────────────────────────────────────
+// ─── Purchase Orders ────────────────────────────────────────────────────────
 export async function getAllPurchaseOrders(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)).orderBy(desc(purchaseOrders.date));
@@ -248,7 +885,7 @@ export async function deletePurchaseOrder(id: number, companyId: number) {
   await db.delete(purchaseOrders).where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.companyId, companyId)));
 }
 
-// ─── Employees ───────────────────────────────────────────────────────────────
+// ─── Employees ──────────────────────────────────────────────────────────────
 export async function getAllEmployees(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(employees).where(eq(employees.companyId, companyId)).orderBy(asc(employees.name));
@@ -269,7 +906,7 @@ export async function deleteEmployee(id: number, companyId: number) {
   await db.delete(employees).where(and(eq(employees.id, id), eq(employees.companyId, companyId)));
 }
 
-// ─── Payroll ─────────────────────────────────────────────────────────────────
+// ─── Payroll ────────────────────────────────────────────────────────────────
 export async function getAllPayrollRuns(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(payrollRuns).where(eq(payrollRuns.companyId, companyId)).orderBy(desc(payrollRuns.runDate));
@@ -280,7 +917,7 @@ export async function createPayrollRun(companyId: number, data: { payrollId: str
   await db.insert(payrollRuns).values({ ...data, companyId } as any);
 }
 
-// ─── Warehouses ──────────────────────────────────────────────────────────────
+// ─── Warehouses ─────────────────────────────────────────────────────────────
 export async function getAllWarehouses(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(warehouses).where(eq(warehouses.companyId, companyId)).orderBy(asc(warehouses.name));
@@ -301,7 +938,7 @@ export async function deleteWarehouse(id: number, companyId: number) {
   await db.delete(warehouses).where(and(eq(warehouses.id, id), eq(warehouses.companyId, companyId)));
 }
 
-// ─── Supply Chain ────────────────────────────────────────────────────────────
+// ─── Supply Chain ───────────────────────────────────────────────────────────
 export async function getAllSupplyChainOrders(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(supplyChainOrders).where(eq(supplyChainOrders.companyId, companyId)).orderBy(desc(supplyChainOrders.orderDate));
@@ -322,7 +959,7 @@ export async function deleteSCOrder(id: number, companyId: number) {
   await db.delete(supplyChainOrders).where(and(eq(supplyChainOrders.id, id), eq(supplyChainOrders.companyId, companyId)));
 }
 
-// ─── Delivery Staff ──────────────────────────────────────────────────────────
+// ─── Delivery Staff ─────────────────────────────────────────────────────────
 export async function getAllDeliveryStaff(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(deliveryStaff).where(eq(deliveryStaff.companyId, companyId)).orderBy(asc(deliveryStaff.name));
@@ -343,7 +980,7 @@ export async function deleteDeliveryStaffMember(id: number, companyId: number) {
   await db.delete(deliveryStaff).where(and(eq(deliveryStaff.id, id), eq(deliveryStaff.companyId, companyId)));
 }
 
-// ─── Deliveries ──────────────────────────────────────────────────────────────
+// ─── Deliveries ─────────────────────────────────────────────────────────────
 export async function getAllDeliveries(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(deliveries).where(eq(deliveries.companyId, companyId)).orderBy(desc(deliveries.createdAt));
@@ -364,7 +1001,7 @@ export async function assignDelivery(id: number, companyId: number, staffId: num
   await db.update(deliveries).set({ staffId, staffName, status: "Assigned" as any }).where(and(eq(deliveries.id, id), eq(deliveries.companyId, companyId)));
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
+// ─── Settings ───────────────────────────────────────────────────────────────
 export async function getAllSettings(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(settings).where(eq(settings.companyId, companyId));
@@ -380,22 +1017,23 @@ export async function upsertSetting(companyId: number, key: string, value: strin
   }
 }
 
-// ─── Dashboard Aggregates ────────────────────────────────────────────────────
+// ─── Dashboard Aggregates (journal-driven) ──────────────────────────────────
 export async function getDashboardData(companyId: number) {
   const db = await getDb(); if (!db) return null;
-  const accts = await db.select().from(accounts).where(eq(accounts.companyId, companyId));
+  const balances = await getAllAccountBalances(companyId);
   const invs = await db.select().from(invoices).where(eq(invoices.companyId, companyId));
   const bls = await db.select().from(bills).where(eq(bills.companyId, companyId));
   const inv = await db.select().from(inventory).where(eq(inventory.companyId, companyId));
   const jes = await db.select().from(journalEntries).where(eq(journalEntries.companyId, companyId));
   const sortedJes = jes.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-  const jeLines = await db.select().from(journalLines);
+  const jeIds = sortedJes.map(e => e.id);
+  const jeLines = jeIds.length > 0 ? await db.select().from(journalLines).where(inArray(journalLines.journalEntryId, jeIds)) : [];
   const recentJEs = sortedJes.map(e => ({ ...e, lines: jeLines.filter(l => l.journalEntryId === e.id) }));
 
-  const totalRevenue = accts.filter(a => a.type === 'Revenue').reduce((s, a) => s + Number(a.balance), 0);
-  const totalExpenses = accts.filter(a => a.type === 'Expense').reduce((s, a) => s + Number(a.balance), 0);
+  const totalRevenue = balances.filter(a => a.type === 'Revenue' && !a.isGroup).reduce((s, a) => s + a.balance, 0);
+  const totalExpenses = balances.filter(a => a.type === 'Expense' && !a.isGroup).reduce((s, a) => s + a.balance, 0);
   const netIncome = totalRevenue - totalExpenses;
-  const totalAssets = accts.filter(a => a.type === 'Asset').reduce((s, a) => s + Number(a.balance), 0);
+  const totalAssets = balances.filter(a => a.type === 'Asset' && !a.isGroup).reduce((s, a) => s + a.balance, 0);
   const arOutstanding = invs.filter(i => i.status !== 'Paid').reduce((s, i) => s + Number(i.total), 0);
   const apOutstanding = bls.filter(b => b.status === 'Pending').reduce((s, b) => s + Number(b.amount), 0);
   const inventoryValue = inv.reduce((s, i) => s + i.qty * Number(i.cost), 0);
@@ -403,12 +1041,15 @@ export async function getDashboardData(companyId: number) {
   const upcomingBills = bls.filter(b => b.status === 'Pending').slice(0, 4);
 
   return {
-    totalRevenue, totalExpenses, netIncome, totalAssets, arOutstanding, apOutstanding,
-    inventoryValue, lowStockItems, upcomingBills, recentJEs
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    totalExpenses: Math.round(totalExpenses * 100) / 100,
+    netIncome: Math.round(netIncome * 100) / 100,
+    totalAssets: Math.round(totalAssets * 100) / 100,
+    arOutstanding, apOutstanding, inventoryValue, lowStockItems, upcomingBills, recentJEs
   };
 }
 
-// ─── Next ID helpers ─────────────────────────────────────────────────────────
+// ─── Next ID helpers ────────────────────────────────────────────────────────
 export async function getNextId(table: string, prefix: string) {
   const db = await getDb(); if (!db) return `${prefix}-001`;
   let count = 0;
@@ -431,41 +1072,16 @@ export async function getNextId(table: string, prefix: string) {
   return `${prefix}-${String(count + 1).padStart(3, '0')}`;
 }
 
-// ─── Sale Returns ───────────────────────────────────────────────────────────
-export async function getAllSaleReturns(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(saleReturns).where(eq(saleReturns.companyId, companyId)).orderBy(desc(saleReturns.createdAt));
-}
-export async function createSaleReturn(companyId: number, data: { returnId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; amount: string; reason?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(saleReturns).values({ ...data, companyId } as any);
-}
-export async function deleteSaleReturn(id: number, companyId: number) {
-  const db = await getDb(); if (!db) return;
-  await db.delete(saleReturns).where(and(eq(saleReturns.id, id), eq(saleReturns.companyId, companyId)));
-}
-
-// ─── Purchase Returns ───────────────────────────────────────────────────────
-export async function getAllPurchaseReturns(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(purchaseReturns).where(eq(purchaseReturns.companyId, companyId)).orderBy(desc(purchaseReturns.createdAt));
-}
-export async function createPurchaseReturn(companyId: number, data: { returnId: string; vendorId: number; vendorName: string; date: string; billRef?: string; amount: string; reason?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(purchaseReturns).values({ ...data, companyId } as any);
-}
-export async function deletePurchaseReturn(id: number, companyId: number) {
-  const db = await getDb(); if (!db) return;
-  await db.delete(purchaseReturns).where(and(eq(purchaseReturns.id, id), eq(purchaseReturns.companyId, companyId)));
-}
-
 // ─── Estimates ──────────────────────────────────────────────────────────────
 export async function getAllEstimates(companyId: number) {
   const db = await getDb(); if (!db) return [];
   const ests = await db.select().from(estimates).where(eq(estimates.companyId, companyId)).orderBy(desc(estimates.date));
-  const lines = await db.select().from(estimateLines);
+  if (ests.length === 0) return [];
+  const estIds = ests.map(e => e.id);
+  const lines = await db.select().from(estimateLines).where(inArray(estimateLines.estimateId, estIds));
   return ests.map(e => ({ ...e, lines: lines.filter(l => l.estimateId === e.id) }));
 }
+
 export async function createEstimate(companyId: number, data: { estimateId: string; customerId: number; customerName: string; date: string; validUntil?: string; total: string; notes?: string; lines: { description: string; qty: number; rate: string; amount: string }[] }) {
   const db = await getDb(); if (!db) return;
   const [result] = await db.insert(estimates).values({ estimateId: data.estimateId, customerId: data.customerId, customerName: data.customerName, date: data.date, validUntil: data.validUntil, total: data.total, notes: data.notes, companyId } as any).$returningId();
@@ -473,88 +1089,37 @@ export async function createEstimate(companyId: number, data: { estimateId: stri
     await db.insert(estimateLines).values(data.lines.map(l => ({ estimateId: result.id, description: l.description, qty: l.qty, rate: l.rate, amount: l.amount })));
   }
 }
+
 export async function updateEstimateStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
   await db.update(estimates).set({ status: status as any }).where(and(eq(estimates.id, id), eq(estimates.companyId, companyId)));
 }
+
 export async function deleteEstimate(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(estimateLines).where(eq(estimateLines.estimateId, id));
   await db.delete(estimates).where(and(eq(estimates.id, id), eq(estimates.companyId, companyId)));
 }
 
-// ─── Payments In ────────────────────────────────────────────────────────────
-export async function getAllPaymentsIn(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(paymentsIn).where(eq(paymentsIn.companyId, companyId)).orderBy(desc(paymentsIn.date));
-}
-export async function createPaymentIn(companyId: number, data: { paymentId: string; customerId: number; customerName: string; date: string; amount: string; mode: string; invoiceRef?: string; notes?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(paymentsIn).values({ ...data, companyId } as any);
-}
-export async function deletePaymentIn(id: number, companyId: number) {
-  const db = await getDb(); if (!db) return;
-  await db.delete(paymentsIn).where(and(eq(paymentsIn.id, id), eq(paymentsIn.companyId, companyId)));
-}
-
-// ─── Payments Out ───────────────────────────────────────────────────────────
-export async function getAllPaymentsOut(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(paymentsOut).where(eq(paymentsOut.companyId, companyId)).orderBy(desc(paymentsOut.date));
-}
-export async function createPaymentOut(companyId: number, data: { paymentId: string; vendorId: number; vendorName: string; date: string; amount: string; mode: string; billRef?: string; notes?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(paymentsOut).values({ ...data, companyId } as any);
-}
-export async function deletePaymentOut(id: number, companyId: number) {
-  const db = await getDb(); if (!db) return;
-  await db.delete(paymentsOut).where(and(eq(paymentsOut.id, id), eq(paymentsOut.companyId, companyId)));
-}
-
-// ─── Cash & Bank ────────────────────────────────────────────────────────────
+// ─── Cash & Bank Accounts ───────────────────────────────────────────────────
 export async function getAllCashBankAccounts(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(cashBankAccounts).where(eq(cashBankAccounts.companyId, companyId)).orderBy(asc(cashBankAccounts.name));
 }
-export async function createCashBankAccount(companyId: number, data: { name: string; type: string; bankName?: string; accountNumber?: string; balance?: string }) {
+
+export async function createCashBankAccount(companyId: number, data: { name: string; type: string; bankName?: string; accountNumber?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(cashBankAccounts).values({ ...data, companyId } as any);
 }
-export async function updateCashBankAccount(id: number, companyId: number, data: Partial<{ name: string; type: string; bankName: string; accountNumber: string; balance: string }>) {
+
+export async function updateCashBankAccount(id: number, companyId: number, data: Partial<{ name: string; type: string; bankName: string; accountNumber: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(cashBankAccounts).set(data as any).where(and(eq(cashBankAccounts.id, id), eq(cashBankAccounts.companyId, companyId)));
 }
+
 export async function deleteCashBankAccount(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(cashBankAccounts).where(and(eq(cashBankAccounts.id, id), eq(cashBankAccounts.companyId, companyId)));
-}
-
-// ─── Expenses ───────────────────────────────────────────────────────────────
-export async function getAllExpenses(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(expenses).where(eq(expenses.companyId, companyId)).orderBy(desc(expenses.date));
-}
-export async function createExpense(companyId: number, data: { expenseId: string; date: string; category: string; amount: string; paymentMode: string; description?: string; gstIncluded?: boolean; gstAmount?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(expenses).values({ ...data, companyId } as any);
-}
-export async function deleteExpense(id: number, companyId: number) {
-  const db = await getDb(); if (!db) return;
-  await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.companyId, companyId)));
-}
-
-// ─── Other Income ───────────────────────────────────────────────────────────
-export async function getAllOtherIncome(companyId: number) {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(otherIncome).where(eq(otherIncome.companyId, companyId)).orderBy(desc(otherIncome.date));
-}
-export async function createOtherIncome(companyId: number, data: { incomeId: string; date: string; category: string; amount: string; paymentMode: string; description?: string }) {
-  const db = await getDb(); if (!db) return;
-  await db.insert(otherIncome).values({ ...data, companyId } as any);
-}
-export async function deleteOtherIncome(id: number, companyId: number) {
-  const db = await getDb(); if (!db) return;
-  await db.delete(otherIncome).where(and(eq(otherIncome.id, id), eq(otherIncome.companyId, companyId)));
 }
 
 // ─── Delivery Challans ──────────────────────────────────────────────────────
@@ -562,14 +1127,17 @@ export async function getAllDeliveryChallans(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(deliveryChallans).where(eq(deliveryChallans.companyId, companyId)).orderBy(desc(deliveryChallans.date));
 }
+
 export async function createDeliveryChallan(companyId: number, data: { challanId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; items?: any; transportMode?: string; vehicleNumber?: string; notes?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(deliveryChallans).values({ ...data, companyId } as any);
 }
+
 export async function updateDeliveryChallanStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
   await db.update(deliveryChallans).set({ status: status as any }).where(and(eq(deliveryChallans.id, id), eq(deliveryChallans.companyId, companyId)));
 }
+
 export async function deleteDeliveryChallan(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(deliveryChallans).where(and(eq(deliveryChallans.id, id), eq(deliveryChallans.companyId, companyId)));
@@ -580,10 +1148,12 @@ export async function getAllPartyGroups(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(partyGroups).where(eq(partyGroups.companyId, companyId)).orderBy(asc(partyGroups.name));
 }
+
 export async function createPartyGroup(companyId: number, data: { name: string; type: string; description?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(partyGroups).values({ ...data, companyId } as any);
 }
+
 export async function deletePartyGroup(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(partyGroups).where(and(eq(partyGroups.id, id), eq(partyGroups.companyId, companyId)));
@@ -595,23 +1165,28 @@ export async function getGSTSummary(companyId: number) {
   const allInvoices = await db.select().from(invoices).where(eq(invoices.companyId, companyId));
   const allBills = await db.select().from(bills).where(eq(bills.companyId, companyId));
   const allExpenses = await db.select().from(expenses).where(eq(expenses.companyId, companyId));
-  const salesGST = allInvoices.reduce((sum, inv) => sum + Number(inv.total) * 0.18, 0);
-  const purchaseGST = allBills.reduce((sum, b) => sum + Number(b.amount) * 0.18, 0);
+  // Use actual GST fields now
+  const salesGST = allInvoices.reduce((sum, inv) => sum + Number(inv.cgst) + Number(inv.sgst) + Number(inv.igst), 0);
+  const purchaseGST = allBills.reduce((sum, b) => sum + Number(b.cgst) + Number(b.sgst) + Number(b.igst), 0);
   const expenseGST = allExpenses.filter(e => e.gstIncluded).reduce((sum, e) => sum + Number(e.gstAmount || 0), 0);
-  return { salesGST: Math.round(salesGST * 100) / 100, purchaseGST: Math.round(purchaseGST * 100) / 100, expenseGST: Math.round(expenseGST * 100) / 100, netGST: Math.round((salesGST - purchaseGST - expenseGST) * 100) / 100, invoices: allInvoices, bills: allBills, expenses: allExpenses };
+  return {
+    salesGST: Math.round(salesGST * 100) / 100,
+    purchaseGST: Math.round(purchaseGST * 100) / 100,
+    expenseGST: Math.round(expenseGST * 100) / 100,
+    netGST: Math.round((salesGST - purchaseGST - expenseGST) * 100) / 100,
+    invoices: allInvoices, bills: allBills, expenses: allExpenses
+  };
 }
 
 // ─── Day Book ───────────────────────────────────────────────────────────────
 export async function getDayBook(companyId: number, date: string) {
-  const db = await getDb(); if (!db) return { invoices: [], bills: [], paymentsIn: [], paymentsOut: [], expenses: [], otherIncome: [], journalEntries: [] };
-  const dayInvoices = await db.select().from(invoices).where(and(eq(invoices.date, date), eq(invoices.companyId, companyId)));
-  const dayBills = await db.select().from(bills).where(and(eq(bills.date, date), eq(bills.companyId, companyId)));
-  const dayPI = await db.select().from(paymentsIn).where(and(eq(paymentsIn.date, date), eq(paymentsIn.companyId, companyId)));
-  const dayPO = await db.select().from(paymentsOut).where(and(eq(paymentsOut.date, date), eq(paymentsOut.companyId, companyId)));
-  const dayExp = await db.select().from(expenses).where(and(eq(expenses.date, date), eq(expenses.companyId, companyId)));
-  const dayOI = await db.select().from(otherIncome).where(and(eq(otherIncome.date, date), eq(otherIncome.companyId, companyId)));
-  const dayJE = await db.select().from(journalEntries).where(and(eq(journalEntries.date, date), eq(journalEntries.companyId, companyId)));
-  return { invoices: dayInvoices, bills: dayBills, paymentsIn: dayPI, paymentsOut: dayPO, expenses: dayExp, otherIncome: dayOI, journalEntries: dayJE };
+  const db = await getDb(); if (!db) return { journalEntries: [] };
+  // Journal-driven day book: show all journal entries for the date
+  const dayJEs = await db.select().from(journalEntries).where(and(eq(journalEntries.date, date), eq(journalEntries.companyId, companyId))).orderBy(asc(journalEntries.id));
+  if (dayJEs.length === 0) return { journalEntries: [] };
+  const jeIds = dayJEs.map(e => e.id);
+  const lines = await db.select().from(journalLines).where(inArray(journalLines.journalEntryId, jeIds));
+  return { journalEntries: dayJEs.map(e => ({ ...e, lines: lines.filter(l => l.journalEntryId === e.id) })) };
 }
 
 // ─── Cashflow Report ────────────────────────────────────────────────────────
@@ -626,7 +1201,7 @@ export async function getCashflowReport(companyId: number) {
   return { inflows: Math.round(inflows * 100) / 100, outflows: Math.round(outflows * 100) / 100, net: Math.round((inflows - outflows) * 100) / 100, paymentsIn: allPI, paymentsOut: allPO, otherIncome: allOI, expenses: allExp };
 }
 
-// ─── Aging Report (Overdue Invoices) ────────────────────────────────────────
+// ─── Aging Report ───────────────────────────────────────────────────────────
 export async function getAgingReport(companyId: number) {
   const db = await getDb(); if (!db) return [];
   const allInvoices = await db.select().from(invoices).where(eq(invoices.companyId, companyId));
@@ -681,6 +1256,8 @@ export async function createCompany(data: { name: string; slug: string; gstin?: 
   const [result] = await db.insert(companies).values(data as any).$returningId();
   await db.insert(subscriptions).values({ companyId: result.id, plan: "professional", status: "trial", trialStartDate: new Date(), trialEndDate: trialEnd } as any);
   await db.insert(companyMembers).values({ companyId: result.id, userId: data.ownerId, role: "owner" } as any);
+  // Seed default COA for the new company
+  await seedDefaultCOA(result.id);
   return result;
 }
 

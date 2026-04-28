@@ -26,12 +26,26 @@ export const appRouter = router({
   accounts: router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllAccounts(ctx.companyId)),
     create: companyProcedure.input(z.object({
-      code: z.string(), name: z.string(), type: z.string(), subtype: z.string().optional(), balance: z.string().optional()
+      code: z.string(), name: z.string(), type: z.string(), subtype: z.string().optional(),
+      parentId: z.number().optional(), isGroup: z.boolean().optional(), nature: z.string().optional(),
+      balance: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createAccount(ctx.companyId, input); return { success: true }; }),
     update: companyProcedure.input(z.object({
-      id: z.number(), code: z.string().optional(), name: z.string().optional(), type: z.string().optional(), subtype: z.string().optional(), balance: z.string().optional()
+      id: z.number(), code: z.string().optional(), name: z.string().optional(), type: z.string().optional(), subtype: z.string().optional(),
+      parentId: z.number().optional(), isGroup: z.boolean().optional(), nature: z.string().optional(),
+      balance: z.string().optional()
     })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateAccount(id, ctx.companyId, data); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteAccount(input.id, ctx.companyId); return { success: true }; }),
+    seedCOA: companyProcedure.mutation(async ({ ctx }) => { await db.seedDefaultCOA(ctx.companyId); return { success: true }; }),
+    balances: companyProcedure.query(async ({ ctx }) => db.getAllAccountBalances(ctx.companyId)),
+    generalLedger: companyProcedure.input(z.object({ accountId: z.number() })).query(async ({ ctx, input }) => db.getGeneralLedger(ctx.companyId, input.accountId)),
+  }),
+
+  // ─── Financial Reports ──────────────────────────────────────────────
+  reports: router({
+    trialBalance: companyProcedure.query(async ({ ctx }) => db.getTrialBalance(ctx.companyId)),
+    profitAndLoss: companyProcedure.query(async ({ ctx }) => db.getProfitAndLoss(ctx.companyId)),
+    balanceSheet: companyProcedure.query(async ({ ctx }) => db.getBalanceSheet(ctx.companyId)),
   }),
 
   // ─── Journal Entries ─────────────────────────────────────────────────
@@ -40,11 +54,11 @@ export const appRouter = router({
     nextId: companyProcedure.query(async () => db.getNextId('journal_entries', 'JE')),
     create: companyProcedure.input(z.object({
       entryId: z.string(), date: z.string(), description: z.string(), posted: z.boolean(),
-      lines: z.array(z.object({ account: z.string(), debit: z.string(), credit: z.string() }))
+      lines: z.array(z.object({ accountId: z.number(), accountName: z.string(), debit: z.string(), credit: z.string(), narration: z.string().optional() }))
     })).mutation(async ({ ctx, input }) => { await db.createJournalEntry(ctx.companyId, input); return { success: true }; }),
     update: companyProcedure.input(z.object({
       id: z.number(), date: z.string(), description: z.string(), posted: z.boolean(),
-      lines: z.array(z.object({ account: z.string(), debit: z.string(), credit: z.string() }))
+      lines: z.array(z.object({ accountId: z.number(), accountName: z.string(), debit: z.string(), credit: z.string(), narration: z.string().optional() }))
     })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateJournalEntry(id, ctx.companyId, data); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteJournalEntry(input.id, ctx.companyId); return { success: true }; }),
   }),
@@ -66,8 +80,9 @@ export const appRouter = router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllInvoices(ctx.companyId)),
     nextId: companyProcedure.query(async () => db.getNextId('invoices', 'INV')),
     create: companyProcedure.input(z.object({
-      invoiceId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), dueDate: z.string(), status: z.string(), total: z.string(),
-      lines: z.array(z.object({ description: z.string(), qty: z.number(), rate: z.string(), discount: z.string().optional(), amount: z.string() }))
+      invoiceId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), dueDate: z.string(), status: z.string(),
+      subtotal: z.string(), cgst: z.string().default('0'), sgst: z.string().default('0'), igst: z.string().default('0'), total: z.string(),
+      lines: z.array(z.object({ description: z.string(), hsnCode: z.string().optional(), qty: z.number(), rate: z.string(), discount: z.string().optional(), gstRate: z.string().optional(), amount: z.string() }))
     })).mutation(async ({ ctx, input }) => { await db.createInvoice(ctx.companyId, input); return { success: true }; }),
     updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => {
       await db.updateInvoiceStatus(input.id, ctx.companyId, input.status);

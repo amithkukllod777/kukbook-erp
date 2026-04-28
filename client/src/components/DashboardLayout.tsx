@@ -63,6 +63,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: BookOpen, label: "Chart of Accounts", path: "/accounts" },
       { icon: FileText, label: "Journal Entries", path: "/journal" },
+      { icon: ScrollText, label: "General Ledger", path: "/general-ledger" },
       { icon: Wallet, label: "Cash & Bank", path: "/cash-bank" },
       { icon: BarChart3, label: "Financial Reports", path: "/reports" },
       { icon: FileSpreadsheet, label: "Advanced Reports", path: "/advanced-reports" },

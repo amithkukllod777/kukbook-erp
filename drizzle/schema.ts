@@ -16,7 +16,7 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// ─── Chart of Accounts ──────────────────────────────────────────────────────
+// ─── Chart of Accounts (with hierarchy) ─────────────────────────────────────
 export const accounts = mysqlTable("accounts", {
   id: int("id").autoincrement().primaryKey(),
   companyId: int("companyId"),
@@ -24,7 +24,12 @@ export const accounts = mysqlTable("accounts", {
   name: varchar("name", { length: 200 }).notNull(),
   type: mysqlEnum("type", ["Asset", "Liability", "Equity", "Revenue", "Expense"]).notNull(),
   subtype: varchar("subtype", { length: 100 }),
-  balance: decimal("balance", { precision: 15, scale: 2 }).default("0").notNull(),
+  parentId: int("parentId"),
+  isGroup: mysqlBoolean("isGroup").default(false).notNull(),
+  nature: mysqlEnum("nature", ["Debit", "Credit"]).default("Debit").notNull(),
+  openingBalance: decimal("openingBalance", { precision: 15, scale: 2 }).default("0").notNull(),
+  description: text("acct_description"),
+  isSystemAccount: mysqlBoolean("isSystemAccount").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -32,7 +37,7 @@ export const accounts = mysqlTable("accounts", {
 export type Account = typeof accounts.$inferSelect;
 export type InsertAccount = typeof accounts.$inferInsert;
 
-// ─── Journal Entries ────────────────────────────────────────────────────────
+// ─── Journal Entries (with source tracking) ─────────────────────────────────
 export const journalEntries = mysqlTable("journal_entries", {
   id: int("id").autoincrement().primaryKey(),
   companyId: int("je_companyId"),
@@ -40,6 +45,8 @@ export const journalEntries = mysqlTable("journal_entries", {
   date: varchar("date", { length: 10 }).notNull(),
   description: text("description"),
   posted: mysqlBoolean("posted").default(false).notNull(),
+  sourceType: varchar("sourceType", { length: 30 }),
+  sourceId: int("sourceId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -49,9 +56,11 @@ export type JournalEntry = typeof journalEntries.$inferSelect;
 export const journalLines = mysqlTable("journal_lines", {
   id: int("id").autoincrement().primaryKey(),
   journalEntryId: int("journalEntryId").notNull(),
-  account: varchar("account", { length: 200 }).notNull(),
+  accountId: int("jl_accountId").notNull(),
+  accountName: varchar("jl_accountName", { length: 200 }).notNull(),
   debit: decimal("debit", { precision: 15, scale: 2 }).default("0").notNull(),
   credit: decimal("credit", { precision: 15, scale: 2 }).default("0").notNull(),
+  narration: varchar("jl_narration", { length: 500 }),
 });
 
 export type JournalLine = typeof journalLines.$inferSelect;
@@ -63,9 +72,11 @@ export const customers = mysqlTable("customers", {
   name: varchar("name", { length: 200 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 50 }),
+  gstin: varchar("cust_gstin", { length: 20 }),
+  state: varchar("cust_state", { length: 100 }),
   city: varchar("city", { length: 100 }),
   address: text("address"),
-  balance: decimal("balance", { precision: 15, scale: 2 }).default("0").notNull(),
+  accountId: int("cust_accountId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -82,7 +93,12 @@ export const invoices = mysqlTable("invoices", {
   date: varchar("date", { length: 10 }).notNull(),
   dueDate: varchar("dueDate", { length: 10 }).notNull(),
   status: mysqlEnum("status", ["Draft", "Sent", "Paid", "Overdue"]).default("Draft").notNull(),
+  subtotal: decimal("subtotal", { precision: 15, scale: 2 }).default("0").notNull(),
+  cgst: decimal("inv_cgst", { precision: 15, scale: 2 }).default("0").notNull(),
+  sgst: decimal("inv_sgst", { precision: 15, scale: 2 }).default("0").notNull(),
+  igst: decimal("inv_igst", { precision: 15, scale: 2 }).default("0").notNull(),
   total: decimal("total", { precision: 15, scale: 2 }).default("0").notNull(),
+  journalEntryId: int("inv_journalEntryId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -93,9 +109,11 @@ export const invoiceLines = mysqlTable("invoice_lines", {
   id: int("id").autoincrement().primaryKey(),
   invoiceId: int("invoiceId").notNull(),
   description: varchar("description", { length: 500 }).notNull(),
+  hsnCode: varchar("il_hsnCode", { length: 20 }),
   qty: int("qty").default(1).notNull(),
   rate: decimal("rate", { precision: 15, scale: 2 }).default("0").notNull(),
   discount: decimal("discount", { precision: 15, scale: 2 }).default("0").notNull(),
+  gstRate: decimal("il_gstRate", { precision: 5, scale: 2 }).default("0").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).default("0").notNull(),
 });
 
@@ -108,9 +126,11 @@ export const vendors = mysqlTable("vendors", {
   name: varchar("name", { length: 200 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 50 }),
+  gstin: varchar("vend_gstin", { length: 20 }),
+  state: varchar("vend_state", { length: 100 }),
   category: varchar("category", { length: 100 }),
   address: text("address"),
-  balance: decimal("balance", { precision: 15, scale: 2 }).default("0").notNull(),
+  accountId: int("vend_accountId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -126,9 +146,14 @@ export const bills = mysqlTable("bills", {
   vendorName: varchar("vendorName", { length: 200 }).notNull(),
   date: varchar("date", { length: 10 }).notNull(),
   dueDate: varchar("dueDate", { length: 10 }).notNull(),
+  subtotal: decimal("bill_subtotal", { precision: 15, scale: 2 }).default("0").notNull(),
+  cgst: decimal("bill_cgst", { precision: 15, scale: 2 }).default("0").notNull(),
+  sgst: decimal("bill_sgst", { precision: 15, scale: 2 }).default("0").notNull(),
+  igst: decimal("bill_igst", { precision: 15, scale: 2 }).default("0").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).default("0").notNull(),
   status: mysqlEnum("bill_status", ["Pending", "Paid"]).default("Pending").notNull(),
   description: text("description"),
+  journalEntryId: int("bill_journalEntryId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -297,6 +322,7 @@ export const saleReturns = mysqlTable("sale_returns", {
   invoiceRef: varchar("invoiceRef", { length: 20 }),
   amount: decimal("sr_amount", { precision: 15, scale: 2 }).default("0").notNull(),
   reason: text("reason"),
+  journalEntryId: int("sr_journalEntryId"),
   createdAt: timestamp("sr_createdAt").defaultNow().notNull(),
 });
 
@@ -313,6 +339,7 @@ export const purchaseReturns = mysqlTable("purchase_returns", {
   billRef: varchar("billRef", { length: 20 }),
   amount: decimal("pr_amount", { precision: 15, scale: 2 }).default("0").notNull(),
   reason: text("pr_reason"),
+  journalEntryId: int("pr_journalEntryId"),
   createdAt: timestamp("pr_createdAt").defaultNow().notNull(),
 });
 
@@ -359,6 +386,7 @@ export const paymentsIn = mysqlTable("payments_in", {
   mode: varchar("pi_mode", { length: 50 }).default("Cash").notNull(),
   invoiceRef: varchar("pi_invoiceRef", { length: 20 }),
   notes: text("pi_notes"),
+  journalEntryId: int("pi_journalEntryId"),
   createdAt: timestamp("pi_createdAt").defaultNow().notNull(),
 });
 
@@ -376,6 +404,7 @@ export const paymentsOut = mysqlTable("payments_out", {
   mode: varchar("po_mode", { length: 50 }).default("Cash").notNull(),
   billRef: varchar("po_billRef", { length: 20 }),
   notes: text("po_notes"),
+  journalEntryId: int("po_journalEntryId"),
   createdAt: timestamp("po_createdAt").defaultNow().notNull(),
 });
 
@@ -389,7 +418,7 @@ export const cashBankAccounts = mysqlTable("cash_bank_accounts", {
   type: mysqlEnum("cb_type", ["Cash", "Bank", "UPI", "Wallet"]).default("Cash").notNull(),
   bankName: varchar("bankName", { length: 200 }),
   accountNumber: varchar("accountNumber", { length: 50 }),
-  balance: decimal("cb_balance", { precision: 15, scale: 2 }).default("0").notNull(),
+  linkedAccountId: int("cb_linkedAccountId"),
   createdAt: timestamp("cb_createdAt").defaultNow().notNull(),
   updatedAt: timestamp("cb_updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -408,6 +437,8 @@ export const expenses = mysqlTable("expenses", {
   description: text("exp_description"),
   gstIncluded: mysqlBoolean("gstIncluded").default(false).notNull(),
   gstAmount: decimal("gstAmount", { precision: 15, scale: 2 }).default("0"),
+  accountId: int("exp_accountId"),
+  journalEntryId: int("exp_journalEntryId"),
   createdAt: timestamp("exp_createdAt").defaultNow().notNull(),
 });
 
@@ -423,6 +454,8 @@ export const otherIncome = mysqlTable("other_income", {
   amount: decimal("oi_amount", { precision: 15, scale: 2 }).default("0").notNull(),
   paymentMode: varchar("oi_paymentMode", { length: 50 }).default("Cash").notNull(),
   description: text("oi_description"),
+  accountId: int("oi_accountId"),
+  journalEntryId: int("oi_journalEntryId"),
   createdAt: timestamp("oi_createdAt").defaultNow().notNull(),
 });
 
@@ -474,6 +507,7 @@ export const companies = mysqlTable("companies", {
   email: varchar("company_email", { length: 320 }),
   logo: text("company_logo"),
   industry: varchar("company_industry", { length: 100 }),
+  financialYearStart: varchar("fy_start", { length: 10 }).default("04-01"),
   ownerId: int("company_ownerId").notNull(),
   createdAt: timestamp("company_createdAt").defaultNow().notNull(),
   updatedAt: timestamp("company_updatedAt").defaultNow().onUpdateNow().notNull(),

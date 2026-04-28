@@ -16,15 +16,12 @@ function DayBookTab() {
   const { data, isLoading } = trpc.advancedReports.dayBook.useQuery({ date });
 
   const entries = useMemo(() => {
-    if (!data) return [];
-    const all: { type: string; ref: string; party: string; amount: number; direction: string }[] = [];
-    data.invoices?.forEach((i: any) => all.push({ type: "Invoice", ref: i.invoiceId, party: i.customerName, amount: Number(i.total), direction: "in" }));
-    data.bills?.forEach((b: any) => all.push({ type: "Bill", ref: b.billId, party: b.vendorName, amount: Number(b.amount), direction: "out" }));
-    data.paymentsIn?.forEach((p: any) => all.push({ type: "Payment In", ref: p.paymentId, party: p.customerName, amount: Number(p.amount), direction: "in" }));
-    data.paymentsOut?.forEach((p: any) => all.push({ type: "Payment Out", ref: p.paymentId, party: p.vendorName, amount: Number(p.amount), direction: "out" }));
-    data.expenses?.forEach((e: any) => all.push({ type: "Expense", ref: e.expenseId, party: e.category, amount: Number(e.amount), direction: "out" }));
-    data.otherIncome?.forEach((o: any) => all.push({ type: "Other Income", ref: o.incomeId, party: o.category, amount: Number(o.amount), direction: "in" }));
-    return all;
+    if (!data?.journalEntries) return [];
+    return data.journalEntries.map((je: any) => {
+      const totalDebit = (je.lines || []).reduce((s: number, l: any) => s + Number(l.debit), 0);
+      const totalCredit = (je.lines || []).reduce((s: number, l: any) => s + Number(l.credit), 0);
+      return { type: je.sourceType || 'manual', ref: je.entryId, party: je.description, debit: totalDebit, credit: totalCredit };
+    });
   }, [data]);
 
   return (
@@ -41,19 +38,19 @@ function DayBookTab() {
             <table className="w-full text-sm">
               <thead><tr className="border-b text-left text-muted-foreground"><th className="pb-3 font-medium">Type</th><th className="pb-3 font-medium">Reference</th><th className="pb-3 font-medium">Party</th><th className="pb-3 font-medium text-right">Debit</th><th className="pb-3 font-medium text-right">Credit</th></tr></thead>
               <tbody>
-                {entries.map((e, i) => (
+                {entries.map((e: any, i: number) => (
                   <tr key={i} className="border-b">
-                    <td className="py-3"><Badge variant={e.direction === "in" ? "default" : "secondary"}>{e.type}</Badge></td>
+                    <td className="py-3"><Badge variant={e.type === 'manual' ? 'outline' : 'default'}>{e.type}</Badge></td>
                     <td className="py-3 font-medium">{e.ref}</td>
                     <td className="py-3">{e.party}</td>
-                    <td className="py-3 text-right">{e.direction === "out" ? fmt(e.amount) : ""}</td>
-                    <td className="py-3 text-right">{e.direction === "in" ? fmt(e.amount) : ""}</td>
+                    <td className="py-3 text-right">{e.debit > 0 ? fmt(e.debit) : ""}</td>
+                    <td className="py-3 text-right">{e.credit > 0 ? fmt(e.credit) : ""}</td>
                   </tr>
                 ))}
                 <tr className="font-bold bg-muted/50">
                   <td className="py-3" colSpan={3}>Total</td>
-                  <td className="py-3 text-right">{fmt(entries.filter(e => e.direction === "out").reduce((s, e) => s + e.amount, 0))}</td>
-                  <td className="py-3 text-right">{fmt(entries.filter(e => e.direction === "in").reduce((s, e) => s + e.amount, 0))}</td>
+                  <td className="py-3 text-right">{fmt(entries.reduce((s: number, e: any) => s + e.debit, 0))}</td>
+                  <td className="py-3 text-right">{fmt(entries.reduce((s: number, e: any) => s + e.credit, 0))}</td>
                 </tr>
               </tbody>
             </table>
