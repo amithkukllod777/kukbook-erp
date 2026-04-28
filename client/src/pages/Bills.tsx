@@ -10,38 +10,92 @@ import { Plus, Trash2, Search, CheckCircle, FileDown, FileSpreadsheet } from "lu
 import { exportToPDF, exportToCSV } from "@/lib/export";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
+import { useCompany } from "@/contexts/CompanyContext";
 
-const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(n);
+
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+  "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+  "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+];
+
+const GST_RATES = ["0", "5", "12", "18", "28"];
 
 export default function Bills() {
   const utils = trpc.useUtils();
+  const { activeCompany } = useCompany();
   const { data: bills = [], isLoading } = trpc.bills.list.useQuery();
   const { data: vendors = [] } = trpc.vendors.list.useQuery();
   const { data: nextId } = trpc.bills.nextId.useQuery();
+  const { data: companyDetails } = trpc.company.getById.useQuery(
+    { id: activeCompany?.id || 0 },
+    { enabled: !!activeCompany?.id }
+  );
   const createMut = trpc.bills.create.useMutation({ onSuccess: () => { utils.bills.list.invalidate(); utils.bills.nextId.invalidate(); toast.success("Bill created"); setOpen(false); } });
   const updateStatusMut = trpc.bills.updateStatus.useMutation({ onSuccess: () => { utils.bills.list.invalidate(); toast.success("Bill paid"); } });
   const deleteMut = trpc.bills.delete.useMutation({ onSuccess: () => { utils.bills.list.invalidate(); toast.success("Bill deleted"); } });
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ vendorId: 0, vendorName: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "0", description: "" });
+  const [gstRate, setGstRate] = useState("18");
+  const [placeOfSupply, setPlaceOfSupply] = useState("");
+  const [form, setForm] = useState({ vendorId: 0, vendorName: "", date: new Date().toISOString().split("T")[0], dueDate: "", subtotal: "0", description: "" });
 
   const filtered = useMemo(() => bills.filter((b: any) => b.vendorName.toLowerCase().includes(search.toLowerCase()) || b.billId.includes(search)), [bills, search]);
 
-  const openCreate = () => { setForm({ vendorId: 0, vendorName: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "0", description: "" }); setOpen(true); };
+  const taxableValue = Math.max(0, Number(form.subtotal || 0));
+  const companyState = companyDetails?.state || "";
+  const isInterState = placeOfSupply && companyState && placeOfSupply !== companyState;
+  const gstPercent = Number(gstRate);
+  const gstAmount = Math.round(taxableValue * gstPercent / 100 * 100) / 100;
+  const cgst = isInterState ? 0 : Math.round(gstAmount / 2 * 100) / 100;
+  const sgst = isInterState ? 0 : Math.round(gstAmount / 2 * 100) / 100;
+  const igst = isInterState ? gstAmount : 0;
+  const totalAmount = taxableValue + gstAmount;
+
+  const openCreate = () => {
+    setForm({ vendorId: 0, vendorName: "", date: new Date().toISOString().split("T")[0], dueDate: "", subtotal: "0", description: "" });
+    setGstRate("18");
+    setPlaceOfSupply("");
+    setOpen(true);
+  };
+
+  const handleVendorChange = (vendorId: number) => {
+    const v = vendors.find((x: any) => x.id === vendorId);
+    setForm({ ...form, vendorId, vendorName: v?.name || "" });
+    if (v?.state) setPlaceOfSupply(v.state);
+  };
+
   const handleSave = () => {
     if (!form.vendorId) { toast.error("Select a vendor"); return; }
     if (!form.dueDate) { toast.error("Due date is required"); return; }
-    createMut.mutate({ billId: nextId || "BILL-001", ...form });
+    if (!placeOfSupply) { toast.error("Place of supply is required for GST"); return; }
+    createMut.mutate({
+      billId: nextId || "BILL-001",
+      vendorId: form.vendorId,
+      vendorName: form.vendorName,
+      date: form.date,
+      dueDate: form.dueDate,
+      subtotal: String(taxableValue),
+      cgst: String(cgst),
+      sgst: String(sgst),
+      igst: String(igst),
+      amount: String(totalAmount),
+      description: form.description,
+    });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight">Bills</h1><p className="text-sm text-muted-foreground mt-1">Track vendor bills and payments</p></div>
+        <div><h1 className="text-2xl font-bold tracking-tight">Bills</h1><p className="text-sm text-muted-foreground mt-1">Track vendor bills with GST</p></div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => exportToCSV({ title: "Bills", filename: "bills", columns: [{ header: "Bill #", key: "billId" }, { header: "Vendor", key: "vendorName" }, { header: "Date", key: "date" }, { header: "Due Date", key: "dueDate" }, { header: "Status", key: "status" }, { header: "Amount", key: "amount", format: "currency" }], data: filtered })}><FileSpreadsheet className="h-4 w-4 mr-2" />Excel</Button>
-          <Button variant="outline" onClick={() => exportToPDF({ title: "Bills Report", subtitle: `Generated on ${new Date().toLocaleDateString()}`, filename: "bills", columns: [{ header: "Bill #", key: "billId" }, { header: "Vendor", key: "vendorName" }, { header: "Date", key: "date" }, { header: "Due Date", key: "dueDate" }, { header: "Status", key: "status" }, { header: "Amount", key: "amount", format: "currency" }], data: filtered })}><FileDown className="h-4 w-4 mr-2" />PDF</Button>
+          <Button variant="outline" onClick={() => exportToCSV({ title: "Bills", filename: "bills", columns: [{ header: "Bill #", key: "billId" }, { header: "Vendor", key: "vendorName" }, { header: "Date", key: "date" }, { header: "Due Date", key: "dueDate" }, { header: "Status", key: "status" }, { header: "Subtotal", key: "subtotal", format: "currency" }, { header: "CGST", key: "cgst", format: "currency" }, { header: "SGST", key: "sgst", format: "currency" }, { header: "IGST", key: "igst", format: "currency" }, { header: "Total", key: "amount", format: "currency" }], data: filtered })}><FileSpreadsheet className="h-4 w-4 mr-2" />Excel</Button>
+          <Button variant="outline" onClick={() => exportToPDF({ title: "Bills Report", subtitle: `Generated on ${new Date().toLocaleDateString()}`, filename: "bills", columns: [{ header: "Bill #", key: "billId" }, { header: "Vendor", key: "vendorName" }, { header: "Date", key: "date" }, { header: "Status", key: "status" }, { header: "Subtotal", key: "subtotal", format: "currency" }, { header: "CGST", key: "cgst", format: "currency" }, { header: "SGST", key: "sgst", format: "currency" }, { header: "IGST", key: "igst", format: "currency" }, { header: "Total", key: "amount", format: "currency" }], data: filtered })}><FileDown className="h-4 w-4 mr-2" />PDF</Button>
           <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />New Bill</Button>
         </div>
       </div>
@@ -49,41 +103,95 @@ export default function Bills() {
         <div className="p-4 border-b"><div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search bills..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" /></div></div>
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow><TableHead>Bill #</TableHead><TableHead>Vendor</TableHead><TableHead>Date</TableHead><TableHead>Due Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Amount</TableHead><TableHead className="w-[120px]">Actions</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Bill #</TableHead><TableHead>Vendor</TableHead><TableHead>Date</TableHead><TableHead>Due Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead className="text-right">GST</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-[120px]">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
-              {isLoading ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-              : filtered.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No bills found</TableCell></TableRow>
-              : filtered.map((b: any) => (
-                <TableRow key={b.id}>
-                  <TableCell className="font-mono text-sm">{b.billId}</TableCell>
-                  <TableCell className="font-medium">{b.vendorName}</TableCell>
-                  <TableCell>{b.date}</TableCell>
-                  <TableCell>{b.dueDate}</TableCell>
-                  <TableCell><Badge variant="secondary" className={b.status === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}>{b.status}</Badge></TableCell>
-                  <TableCell className="text-right font-medium">{fmt(Number(b.amount))}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {b.status === "Pending" && <Button variant="ghost" size="icon" title="Pay Bill" onClick={() => updateStatusMut.mutate({ id: b.id, status: "Paid" })}><CheckCircle className="h-4 w-4 text-emerald-600" /></Button>}
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete?")) deleteMut.mutate({ id: b.id }); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {isLoading ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+              : filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No bills found</TableCell></TableRow>
+              : filtered.map((b: any) => {
+                const billGst = Number(b.cgst) + Number(b.sgst) + Number(b.igst);
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell className="font-mono text-sm">{b.billId}</TableCell>
+                    <TableCell className="font-medium">{b.vendorName}</TableCell>
+                    <TableCell>{b.date}</TableCell>
+                    <TableCell>{b.dueDate}</TableCell>
+                    <TableCell><Badge variant="secondary" className={b.status === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}>{b.status}</Badge></TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(Number(b.subtotal))}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{billGst > 0 ? fmt(billGst) : "—"}</TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">{fmt(Number(b.amount))}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {b.status === "Pending" && <Button variant="ghost" size="icon" title="Pay Bill" onClick={() => updateStatusMut.mutate({ id: b.id, status: "Paid" })}><CheckCircle className="h-4 w-4 text-emerald-600" /></Button>}
+                        <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete?")) deleteMut.mutate({ id: b.id }); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent><DialogHeader><DialogTitle>New Bill</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>New Bill</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div><label className="text-sm font-medium">Vendor *</label>
-              <Select value={String(form.vendorId || "")} onValueChange={v => { const vn = vendors.find((x: any) => x.id === Number(v)); setForm({ ...form, vendorId: Number(v), vendorName: vn?.name || "" }); }}>
+              <Select value={String(form.vendorId || "")} onValueChange={v => handleVendorChange(Number(v))}>
                 <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
                 <SelectContent>{vendors.map((v: any) => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4"><div><label className="text-sm font-medium">Date</label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div><div><label className="text-sm font-medium">Due Date *</label><Input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></div></div>
-            <div><label className="text-sm font-medium">Amount</label><Input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-sm font-medium">Date</label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
+              <div><label className="text-sm font-medium">Due Date *</label><Input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></div>
+            </div>
+
+            {/* GST Section */}
+            <div className="grid grid-cols-2 gap-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+              <div>
+                <label className="text-sm font-medium text-blue-800">Place of Supply *</label>
+                <Select value={placeOfSupply} onValueChange={setPlaceOfSupply}>
+                  <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+                  <SelectContent>{INDIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-blue-800">GST Rate</label>
+                <Select value={gstRate} onValueChange={setGstRate}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{GST_RATES.map(r => <SelectItem key={r} value={r}>{r}%</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              {placeOfSupply && (
+                <div className="col-span-2 text-sm">
+                  {companyState && <span className="text-muted-foreground mr-2">Company: {companyState}</span>}
+                  <span className={isInterState ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>
+                    {isInterState ? "Inter-State → IGST" : "Intra-State → CGST + SGST"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div><label className="text-sm font-medium">Taxable Amount (₹)</label><Input type="number" value={form.subtotal} onChange={e => setForm({ ...form, subtotal: e.target.value })} /></div>
+
+            {/* GST Breakdown */}
+            {gstPercent > 0 && taxableValue > 0 && (
+              <div className="text-sm space-y-1 p-3 bg-muted/30 rounded-lg">
+                <div className="flex justify-between"><span>Taxable Value</span><span className="tabular-nums">{fmt(taxableValue)}</span></div>
+                {!isInterState ? (
+                  <>
+                    <div className="flex justify-between text-blue-700"><span>CGST @ {gstPercent / 2}%</span><span className="tabular-nums">{fmt(cgst)}</span></div>
+                    <div className="flex justify-between text-blue-700"><span>SGST @ {gstPercent / 2}%</span><span className="tabular-nums">{fmt(sgst)}</span></div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-orange-700"><span>IGST @ {gstPercent}%</span><span className="tabular-nums">{fmt(igst)}</span></div>
+                )}
+                <div className="flex justify-between font-bold border-t pt-1"><span>Total</span><span className="tabular-nums">{fmt(totalAmount)}</span></div>
+              </div>
+            )}
+
             <div><label className="text-sm font-medium">Description</label><Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={createMut.isPending}>Create Bill</Button></DialogFooter>

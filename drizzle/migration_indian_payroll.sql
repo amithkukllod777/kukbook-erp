@@ -1,0 +1,22 @@
+-- Migration: Indian Payroll Support
+-- Add Indian salary structure fields to employees
+ALTER TABLE employees ADD COLUMN basicSalary DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE employees ADD COLUMN hra DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE employees ADD COLUMN da DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE employees ADD COLUMN specialAllowance DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE employees ADD COLUMN panNumber VARCHAR(10);
+ALTER TABLE employees ADD COLUMN uanNumber VARCHAR(20);
+ALTER TABLE employees ADD COLUMN esiNumber VARCHAR(20);
+ALTER TABLE employees ADD COLUMN pfOptOut TINYINT(1) DEFAULT 0 NOT NULL;
+
+-- Update payroll_runs to use Indian deductions instead of US tax
+ALTER TABLE payroll_runs ADD COLUMN basicPay DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN hra_amt DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN da_amt DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN specialAllow DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN pfEmployee DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN pfEmployer DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN esiEmployee DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN esiEmployer DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN professionalTax DECIMAL(15,2) DEFAULT 0 NOT NULL;
+ALTER TABLE payroll_runs ADD COLUMN tds DECIMAL(15,2) DEFAULT 0 NOT NULL;

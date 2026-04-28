@@ -205,34 +205,49 @@
 - [x] Account balance auto-calculation from journal entries (not manual input)
 - [x] Ledger report with PDF/Excel export
 - [x] Day Book (all transactions chronologically — in Advanced Reports)
-- [ ] Cash Book and Bank Book (separate filtered views — pending)
+- [x] Cash Book and Bank Book (journal-driven filtered views for Cash and Bank accounts)
 - [x] Trial Balance computed from actual journal entries
 - [x] Profit & Loss computed from actual journal entries
 - [x] Balance Sheet computed from actual journal entries
 
 ## Priority 2 — Finance Module (Solid)
-- [ ] Review and fix Invoice → Journal Entry auto-posting
-- [ ] Review and fix Bill → Journal Entry auto-posting
-- [ ] Review and fix Payment-In → Journal Entry auto-posting
-- [ ] Review and fix Payment-Out → Journal Entry auto-posting
-- [ ] Review and fix Expense → Journal Entry auto-posting
-- [ ] Proper AR/AP tracking from journal entries
+- [x] Review and fix Invoice → Journal Entry auto-posting (Dr AR, Cr Sales + GST)
+- [x] Review and fix Bill → Journal Entry auto-posting (Dr Purchases + GST Input, Cr AP)
+- [x] Review and fix Payment-In → Journal Entry auto-posting (Dr Cash/Bank, Cr AR)
+- [x] Review and fix Payment-Out → Journal Entry auto-posting (Dr AP, Cr Cash/Bank)
+- [x] Review and fix Expense → Journal Entry auto-posting (Dr Expense + GST Input, Cr Cash/Bank)
+- [x] Proper AR/AP tracking from journal entries (via General Ledger for AR/AP accounts)
 
 ## Priority 3 — GST Compliance
-- [ ] GST calculation on invoices (CGST/SGST/IGST based on state)
-- [ ] GST calculation on bills/purchases
-- [ ] GSTR-1 report from actual invoice data
-- [ ] GSTR-3B report from actual data
-- [ ] GST Input/Output ledger
+- [x] GST calculation on invoices (CGST/SGST/IGST based on Place of Supply vs Company State)
+- [x] GST calculation on bills/purchases (same inter/intra-state logic)
+- [x] GSTR-1 report from actual invoice CGST/SGST/IGST data with month filter
+- [x] GSTR-3B report with proper Section 3.1, Section 4 (ITC), Section 6.1 (Payment of Tax)
+- [x] GST Input/Output tracked via COA accounts (CGST/SGST/IGST Input & Output)
 
 ## Priority 4 — Indian Taxation
-- [ ] TDS calculation and deduction
-- [ ] TCS calculation
-- [ ] Indian Payroll (PF, ESI, Professional Tax, TDS on salary)
+- [x] Indian Payroll (PF 12%, ESI 0.75%/3.25%, Professional Tax, TDS on salary)
+- [x] Employee salary structure (Basic + HRA + DA + Special Allowance) with auto-calc from CTC
+- [x] PAN, UAN, ESI number fields on employee + PF opt-out toggle
+- [x] TDS calculation (New Tax Regime FY 2025-26 with ₹75K std deduction, 87A rebate)
+- [x] Statutory summary (PF deposit, ESI deposit, PT, TDS monthly totals)
+- [x] Employee-wise payroll breakdown with all Indian deductions
+- [ ] TDS on vendor payments (Section 194C/194J etc.) — future enhancement
+- [ ] TCS calculation on sales — future enhancement
 
 ## Priority 5 — Proper Signup & Company Registration
-- [ ] Proper signup flow with email/phone verification
-- [ ] Company registration with GSTIN validation
-- [ ] Company profile page with all business details
-- [ ] Multi-user invite flow for company
+- [x] 3-step onboarding wizard (Company → GST & PAN → Contact) with step indicator
+- [x] GSTIN format validation (regex) with auto-detect State and PAN from GSTIN
+- [x] PAN format validation with real-time visual feedback
+- [x] Indian states dropdown (all 36 states/UTs)
+- [x] Industry selection dropdown (16 categories)
+- [x] Registration summary before submission
+- [x] Company Profile page with tabbed UI (Business Details, GST & Tax, Contact, Team)
+- [x] Company Profile editable with GSTIN/PAN validation
+- [x] Team members list with role badges
+- [x] Company Profile link in sidebar (Administration section)
+- [ ] Email/phone verification (requires external SMS/email service — future)
+- [ ] Multi-user invite flow via email link (future enhancement)
 - [x] Accounting module Vitest tests (18 new tests: COA seed, General Ledger, Trial Balance, P&L, Balance Sheet, Journal Entries with account IDs, auto-posting verification) — 93 total tests passing
+- [x] Employee DB helpers updated to persist Indian salary fields (basicSalary, hra, da, specialAllowance, panNumber, uanNumber, esiNumber, pfOptOut)
+- [x] Payroll DB helper updated to persist Indian deduction fields (pfEmployee, pfEmployer, esiEmployee, esiEmployer, professionalTax, tds)

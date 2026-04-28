@@ -891,12 +891,29 @@ export async function getAllEmployees(companyId: number) {
   return db.select().from(employees).where(eq(employees.companyId, companyId)).orderBy(asc(employees.name));
 }
 
-export async function createEmployee(companyId: number, data: { empId: string; name: string; title?: string; dept?: string; type: string; salary: string; rate: string; email?: string; startDate?: string; active: boolean }) {
+export async function createEmployee(companyId: number, data: {
+  empId: string; name: string; title?: string; dept?: string; type: string; salary: string; rate: string;
+  email?: string; startDate?: string; active: boolean;
+  basicSalary?: string; hra?: string; da?: string; specialAllowance?: string;
+  panNumber?: string; uanNumber?: string; esiNumber?: string; pfOptOut?: boolean;
+}) {
   const db = await getDb(); if (!db) return;
-  await db.insert(employees).values({ ...data, companyId } as any);
+  await db.insert(employees).values({
+    empId: data.empId, name: data.name, title: data.title, dept: data.dept, type: data.type,
+    salary: data.salary, rate: data.rate, email: data.email, startDate: data.startDate, active: data.active,
+    basicSalary: data.basicSalary || '0', hra: data.hra || '0', da: data.da || '0', specialAllowance: data.specialAllowance || '0',
+    panNumber: data.panNumber || null, uanNumber: data.uanNumber || null, esiNumber: data.esiNumber || null,
+    pfOptOut: data.pfOptOut || false,
+    companyId
+  } as any);
 }
 
-export async function updateEmployee(id: number, companyId: number, data: Partial<{ name: string; title: string; dept: string; type: string; salary: string; rate: string; email: string; startDate: string; active: boolean }>) {
+export async function updateEmployee(id: number, companyId: number, data: Partial<{
+  name: string; title: string; dept: string; type: string; salary: string; rate: string;
+  email: string; startDate: string; active: boolean;
+  basicSalary: string; hra: string; da: string; specialAllowance: string;
+  panNumber: string; uanNumber: string; esiNumber: string; pfOptOut: boolean;
+}>) {
   const db = await getDb(); if (!db) return;
   await db.update(employees).set(data as any).where(and(eq(employees.id, id), eq(employees.companyId, companyId)));
 }
@@ -912,9 +929,24 @@ export async function getAllPayrollRuns(companyId: number) {
   return db.select().from(payrollRuns).where(eq(payrollRuns.companyId, companyId)).orderBy(desc(payrollRuns.runDate));
 }
 
-export async function createPayrollRun(companyId: number, data: { payrollId: string; period: string; runDate: string; gross: string; fedTax: string; stateTax: string; ssMed: string; net: string }) {
+export async function createPayrollRun(companyId: number, data: {
+  payrollId: string; period: string; runDate: string; gross: string; net: string;
+  basicPay?: string; hra_amt?: string; da_amt?: string; specialAllow?: string;
+  pfEmployee?: string; pfEmployer?: string; esiEmployee?: string; esiEmployer?: string;
+  professionalTax?: string; tds?: string;
+  fedTax?: string; stateTax?: string; ssMed?: string;
+}) {
   const db = await getDb(); if (!db) return;
-  await db.insert(payrollRuns).values({ ...data, companyId } as any);
+  await db.insert(payrollRuns).values({
+    payrollId: data.payrollId, period: data.period, runDate: data.runDate,
+    gross: data.gross, net: data.net,
+    basicPay: data.basicPay || '0', hra_amt: data.hra_amt || '0', da_amt: data.da_amt || '0', specialAllow: data.specialAllow || '0',
+    pfEmployee: data.pfEmployee || '0', pfEmployer: data.pfEmployer || '0',
+    esiEmployee: data.esiEmployee || '0', esiEmployer: data.esiEmployer || '0',
+    professionalTax: data.professionalTax || '0', tds: data.tds || '0',
+    fedTax: data.fedTax || '0', stateTax: data.stateTax || '0', ssMed: data.ssMed || '0',
+    companyId
+  } as any);
 }
 
 // ─── Warehouses ─────────────────────────────────────────────────────────────

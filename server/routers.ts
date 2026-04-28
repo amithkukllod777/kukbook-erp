@@ -150,7 +150,9 @@ export const appRouter = router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllBills(ctx.companyId)),
     nextId: companyProcedure.query(async () => db.getNextId('bills', 'BILL')),
     create: companyProcedure.input(z.object({
-      billId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), dueDate: z.string(), amount: z.string(), description: z.string().optional()
+      billId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), dueDate: z.string(),
+      subtotal: z.string().optional(), cgst: z.string().optional(), sgst: z.string().optional(), igst: z.string().optional(),
+      amount: z.string(), description: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createBill(ctx.companyId, input); return { success: true }; }),
     updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateBillStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteBill(input.id, ctx.companyId); return { success: true }; }),
@@ -215,10 +217,14 @@ export const appRouter = router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllEmployees(ctx.companyId)),
     nextId: companyProcedure.query(async () => db.getNextId('employees', 'EMP')),
     create: companyProcedure.input(z.object({
-      empId: z.string(), name: z.string(), title: z.string().optional(), dept: z.string().optional(), type: z.string(), salary: z.string(), rate: z.string(), email: z.string().optional(), startDate: z.string().optional(), active: z.boolean()
+      empId: z.string(), name: z.string(), title: z.string().optional(), dept: z.string().optional(), type: z.string(), salary: z.string(), rate: z.string(), email: z.string().optional(), startDate: z.string().optional(), active: z.boolean(),
+      basicSalary: z.string().optional(), hra: z.string().optional(), da: z.string().optional(), specialAllowance: z.string().optional(),
+      panNumber: z.string().optional(), uanNumber: z.string().optional(), esiNumber: z.string().optional(), pfOptOut: z.boolean().optional()
     })).mutation(async ({ ctx, input }) => { await db.createEmployee(ctx.companyId, input); return { success: true }; }),
     update: companyProcedure.input(z.object({
-      id: z.number(), name: z.string().optional(), title: z.string().optional(), dept: z.string().optional(), type: z.string().optional(), salary: z.string().optional(), rate: z.string().optional(), email: z.string().optional(), startDate: z.string().optional(), active: z.boolean().optional()
+      id: z.number(), name: z.string().optional(), title: z.string().optional(), dept: z.string().optional(), type: z.string().optional(), salary: z.string().optional(), rate: z.string().optional(), email: z.string().optional(), startDate: z.string().optional(), active: z.boolean().optional(),
+      basicSalary: z.string().optional(), hra: z.string().optional(), da: z.string().optional(), specialAllowance: z.string().optional(),
+      panNumber: z.string().optional(), uanNumber: z.string().optional(), esiNumber: z.string().optional(), pfOptOut: z.boolean().optional()
     })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateEmployee(id, ctx.companyId, data); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteEmployee(input.id, ctx.companyId); return { success: true }; }),
   }),
@@ -228,7 +234,13 @@ export const appRouter = router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllPayrollRuns(ctx.companyId)),
     nextId: companyProcedure.query(async () => db.getNextId('payroll_runs', 'PR')),
     run: companyProcedure.input(z.object({
-      payrollId: z.string(), period: z.string(), runDate: z.string(), gross: z.string(), fedTax: z.string(), stateTax: z.string(), ssMed: z.string(), net: z.string()
+      payrollId: z.string(), period: z.string(), runDate: z.string(), gross: z.string(),
+      basicPay: z.string().optional(), hra_amt: z.string().optional(), da_amt: z.string().optional(), specialAllow: z.string().optional(),
+      pfEmployee: z.string().optional(), pfEmployer: z.string().optional(),
+      esiEmployee: z.string().optional(), esiEmployer: z.string().optional(),
+      professionalTax: z.string().optional(), tds: z.string().optional(),
+      fedTax: z.string().optional(), stateTax: z.string().optional(), ssMed: z.string().optional(),
+      net: z.string()
     })).mutation(async ({ ctx, input }) => { await db.createPayrollRun(ctx.companyId, input); return { success: true }; }),
   }),
 
@@ -390,6 +402,7 @@ export const appRouter = router({
       return { success: true, company: result };
     }),
     getBySlug: protectedProcedure.input(z.object({ slug: z.string() })).query(async ({ input }) => db.getCompanyBySlug(input.slug)),
+    getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => db.getCompanyById(input.id)),
     update: protectedProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), gstin: z.string().optional(), pan: z.string().optional(),
       address: z.string().optional(), city: z.string().optional(), state: z.string().optional(),

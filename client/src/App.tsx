@@ -38,6 +38,7 @@ const Estimates = lazy(() => import("./pages/Estimates"));
 const PaymentsIn = lazy(() => import("./pages/PaymentsIn"));
 const PaymentsOut = lazy(() => import("./pages/PaymentsOut"));
 const CashBank = lazy(() => import("./pages/CashBank"));
+const CashBankBook = lazy(() => import("./pages/CashBankBook"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const OtherIncome = lazy(() => import("./pages/OtherIncome"));
 const DeliveryChallans = lazy(() => import("./pages/DeliveryChallans"));
@@ -52,6 +53,7 @@ const PaymentReminders = lazy(() => import("./pages/PaymentReminders"));
 const Messaging = lazy(() => import("./pages/Messaging"));
 const MultiFirm = lazy(() => import("./pages/MultiFirm"));
 const Subscription = lazy(() => import("./pages/Subscription"));
+const CompanyProfile = lazy(() => import("./pages/CompanyProfile"));
 
 function PageLoader() {
   return (
@@ -95,6 +97,7 @@ function CompanyRoutes() {
           <Route path="/party-groups" component={PartyGroups} />
           <Route path="/import-export" component={ImportExport} />
           <Route path="/cash-bank" component={CashBank} />
+          <Route path="/cash-bank-book" component={CashBankBook} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/other-income" component={OtherIncome} />
           <Route path="/eway-bill" component={EWayBill} />
@@ -106,6 +109,7 @@ function CompanyRoutes() {
           <Route path="/subscription" component={Subscription} />
           <Route path="/admin/users" component={AdminUsers} />
           <Route path="/admin/settings" component={AdminSettings} />
+          <Route path="/company-profile" component={CompanyProfile} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

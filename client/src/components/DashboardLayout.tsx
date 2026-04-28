@@ -65,6 +65,7 @@ const menuGroups: MenuGroup[] = [
       { icon: FileText, label: "Journal Entries", path: "/journal" },
       { icon: ScrollText, label: "General Ledger", path: "/general-ledger" },
       { icon: Wallet, label: "Cash & Bank", path: "/cash-bank" },
+      { icon: CreditCard, label: "Cash/Bank Book", path: "/cash-bank-book" },
       { icon: BarChart3, label: "Financial Reports", path: "/reports" },
       { icon: FileSpreadsheet, label: "Advanced Reports", path: "/advanced-reports" },
       { icon: IndianRupee, label: "GST Reports", path: "/gst-reports" },
@@ -138,6 +139,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: "Administration",
     items: [
+      { icon: Building2, label: "Company Profile", path: "/company-profile" },
       { icon: Shield, label: "User Management", path: "/admin/users" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
       { icon: ArrowLeftRight, label: "Import / Export", path: "/import-export" },
