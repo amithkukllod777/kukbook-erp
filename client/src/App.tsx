@@ -38,6 +38,11 @@ const PaymentsOut = lazy(() => import("./pages/PaymentsOut"));
 const CashBank = lazy(() => import("./pages/CashBank"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const OtherIncome = lazy(() => import("./pages/OtherIncome"));
+const DeliveryChallans = lazy(() => import("./pages/DeliveryChallans"));
+const GSTReports = lazy(() => import("./pages/GSTReports"));
+const PartyGroups = lazy(() => import("./pages/PartyGroups"));
+const AdvancedReports = lazy(() => import("./pages/AdvancedReports"));
+const ImportExport = lazy(() => import("./pages/ImportExport"));
 
 function PageLoader() {
   return (
@@ -73,6 +78,11 @@ function AuthenticatedRouter() {
           <Route path="/delivery-staff" component={DeliveryStaff} />
           <Route path="/deliveries" component={Deliveries} />
           <Route path="/reports" component={Reports} />
+          <Route path="/advanced-reports" component={AdvancedReports} />
+          <Route path="/gst-reports" component={GSTReports} />
+          <Route path="/delivery-challans" component={DeliveryChallans} />
+          <Route path="/party-groups" component={PartyGroups} />
+          <Route path="/import-export" component={ImportExport} />
           <Route path="/cash-bank" component={CashBank} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/other-income" component={OtherIncome} />

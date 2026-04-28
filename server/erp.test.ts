@@ -137,6 +137,20 @@ vi.mock("./db", () => {
     getAllOtherIncome: vi.fn().mockResolvedValue([{ id: 1, incomeId: "INC-001", date: "2026-04-01", category: "Interest Income", amount: "1000", paymentMode: "Bank Transfer", description: "Savings interest" }]),
     createOtherIncome: vi.fn().mockResolvedValue(undefined),
     deleteOtherIncome: vi.fn().mockResolvedValue(undefined),
+    // Delivery Challans
+    getAllDeliveryChallans: vi.fn().mockResolvedValue([{ id: 1, challanId: "DC-001", customerId: 1, customerName: "Acme Corp", date: "2026-04-01", status: "Draft" }]),
+    createDeliveryChallan: vi.fn().mockResolvedValue(undefined),
+    updateDeliveryChallanStatus: vi.fn().mockResolvedValue(undefined),
+    deleteDeliveryChallan: vi.fn().mockResolvedValue(undefined),
+    // Party Groups
+    getAllPartyGroups: vi.fn().mockResolvedValue([{ id: 1, name: "Premium", type: "Customer", description: "Top customers" }]),
+    createPartyGroup: vi.fn().mockResolvedValue(undefined),
+    deletePartyGroup: vi.fn().mockResolvedValue(undefined),
+    // Advanced Reports
+    getDayBook: vi.fn().mockResolvedValue({ invoices: [], bills: [], paymentsIn: [], paymentsOut: [], expenses: [], otherIncome: [] }),
+    getCashflowReport: vi.fn().mockResolvedValue({ inflows: 50000, outflows: 30000, net: 20000 }),
+    getAgingReport: vi.fn().mockResolvedValue([{ id: 1, invoiceId: "INV-001", customerName: "Acme", dueDate: "2026-03-01", total: "5000", daysOverdue: 58, bucket: "31-60" }]),
+    getStockSummary: vi.fn().mockResolvedValue([{ id: 1, sku: "WDG-001", name: "Widget A", category: "Widgets", qty: 5, cost: "12.50", reorder: 10 }]),
   };
 });
 
@@ -529,5 +543,69 @@ describe("Other Income", () => {
       amount: "5000", paymentMode: "Bank Transfer", description: "Referral commission"
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("Delivery Challans", () => {
+  it("lists delivery challans", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const challans = await caller.deliveryChallans.list();
+    expect(Array.isArray(challans)).toBe(true);
+  });
+
+  it("creates a delivery challan", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.deliveryChallans.create({
+      challanId: "DC-001", customerId: 1, customerName: "Acme Corp",
+      date: "2026-04-28"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Party Groups", () => {
+  it("lists party groups", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const groups = await caller.partyGroups.list();
+    expect(Array.isArray(groups)).toBe(true);
+  });
+
+  it("creates a party group", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.partyGroups.create({
+      name: "Premium Customers", type: "Customer"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Advanced Reports", () => {
+  it("returns day book data", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.advancedReports.dayBook({ date: "2026-04-28" });
+    expect(data).toBeDefined();
+    expect(data).toHaveProperty("invoices");
+    expect(data).toHaveProperty("bills");
+  });
+
+  it("returns cashflow report", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.advancedReports.cashflow();
+    expect(data).toBeDefined();
+    expect(data).toHaveProperty("inflows");
+    expect(data).toHaveProperty("outflows");
+    expect(data).toHaveProperty("net");
+  });
+
+  it("returns aging report", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.advancedReports.aging();
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  it("returns stock summary", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.advancedReports.stockSummary();
+    expect(Array.isArray(data)).toBe(true);
   });
 });

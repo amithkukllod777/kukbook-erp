@@ -6,7 +6,8 @@ import {
   inventory, purchaseOrders, employees, payrollRuns,
   warehouses, supplyChainOrders, deliveryStaff, deliveries, settings,
   saleReturns, purchaseReturns, estimates, estimateLines,
-  paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome
+  paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome,
+  deliveryChallans, partyGroups
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -552,4 +553,94 @@ export async function createOtherIncome(data: { incomeId: string; date: string; 
 export async function deleteOtherIncome(id: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(otherIncome).where(eq(otherIncome.id, id));
+}
+
+// ─── Delivery Challans ──────────────────────────────────────────────────────
+export async function getAllDeliveryChallans() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(deliveryChallans).orderBy(desc(deliveryChallans.date));
+}
+export async function createDeliveryChallan(data: { challanId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; items?: any; transportMode?: string; vehicleNumber?: string; notes?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(deliveryChallans).values(data as any);
+}
+export async function updateDeliveryChallanStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(deliveryChallans).set({ status: status as any }).where(eq(deliveryChallans.id, id));
+}
+export async function deleteDeliveryChallan(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(deliveryChallans).where(eq(deliveryChallans.id, id));
+}
+
+// ─── Party Groups ───────────────────────────────────────────────────────────
+export async function getAllPartyGroups() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(partyGroups).orderBy(asc(partyGroups.name));
+}
+export async function createPartyGroup(data: { name: string; type: string; description?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(partyGroups).values(data as any);
+}
+export async function deletePartyGroup(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(partyGroups).where(eq(partyGroups.id, id));
+}
+
+// ─── GST Summary Report ────────────────────────────────────────────────────
+export async function getGSTSummary() {
+  const db = await getDb(); if (!db) return { salesGST: 0, purchaseGST: 0, expenseGST: 0, netGST: 0, invoices: [], bills: [], expenses: [] };
+  const allInvoices = await db.select().from(invoices);
+  const allBills = await db.select().from(bills);
+  const allExpenses = await db.select().from(expenses);
+  const salesGST = allInvoices.reduce((sum, inv) => sum + Number(inv.total) * 0.18, 0);
+  const purchaseGST = allBills.reduce((sum, b) => sum + Number(b.amount) * 0.18, 0);
+  const expenseGST = allExpenses.filter(e => e.gstIncluded).reduce((sum, e) => sum + Number(e.gstAmount || 0), 0);
+  return { salesGST: Math.round(salesGST * 100) / 100, purchaseGST: Math.round(purchaseGST * 100) / 100, expenseGST: Math.round(expenseGST * 100) / 100, netGST: Math.round((salesGST - purchaseGST - expenseGST) * 100) / 100, invoices: allInvoices, bills: allBills, expenses: allExpenses };
+}
+
+// ─── Day Book ───────────────────────────────────────────────────────────────
+export async function getDayBook(date: string) {
+  const db = await getDb(); if (!db) return { invoices: [], bills: [], paymentsIn: [], paymentsOut: [], expenses: [], otherIncome: [], journalEntries: [] };
+  const dayInvoices = await db.select().from(invoices).where(eq(invoices.date, date));
+  const dayBills = await db.select().from(bills).where(eq(bills.date, date));
+  const dayPI = await db.select().from(paymentsIn).where(eq(paymentsIn.date, date));
+  const dayPO = await db.select().from(paymentsOut).where(eq(paymentsOut.date, date));
+  const dayExp = await db.select().from(expenses).where(eq(expenses.date, date));
+  const dayOI = await db.select().from(otherIncome).where(eq(otherIncome.date, date));
+  const dayJE = await db.select().from(journalEntries).where(eq(journalEntries.date, date));
+  return { invoices: dayInvoices, bills: dayBills, paymentsIn: dayPI, paymentsOut: dayPO, expenses: dayExp, otherIncome: dayOI, journalEntries: dayJE };
+}
+
+// ─── Cashflow Report ────────────────────────────────────────────────────────
+export async function getCashflowReport() {
+  const db = await getDb(); if (!db) return { inflows: 0, outflows: 0, net: 0, details: [] };
+  const allPI = await db.select().from(paymentsIn);
+  const allPO = await db.select().from(paymentsOut);
+  const allOI = await db.select().from(otherIncome);
+  const allExp = await db.select().from(expenses);
+  const inflows = allPI.reduce((s, p) => s + Number(p.amount), 0) + allOI.reduce((s, o) => s + Number(o.amount), 0);
+  const outflows = allPO.reduce((s, p) => s + Number(p.amount), 0) + allExp.reduce((s, e) => s + Number(e.amount), 0);
+  return { inflows: Math.round(inflows * 100) / 100, outflows: Math.round(outflows * 100) / 100, net: Math.round((inflows - outflows) * 100) / 100, paymentsIn: allPI, paymentsOut: allPO, otherIncome: allOI, expenses: allExp };
+}
+
+// ─── Aging Report (Overdue Invoices) ────────────────────────────────────────
+export async function getAgingReport() {
+  const db = await getDb(); if (!db) return [];
+  const allInvoices = await db.select().from(invoices);
+  const today = new Date().toISOString().split('T')[0];
+  return allInvoices.filter(inv => inv.status !== 'Paid' && inv.dueDate < today).map(inv => {
+    const daysOverdue = Math.floor((new Date(today).getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+    let bucket = '0-30';
+    if (daysOverdue > 90) bucket = '90+';
+    else if (daysOverdue > 60) bucket = '61-90';
+    else if (daysOverdue > 30) bucket = '31-60';
+    return { ...inv, daysOverdue, bucket };
+  });
+}
+
+// ─── Stock Summary Report ───────────────────────────────────────────────────
+export async function getStockSummary() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(inventory).orderBy(asc(inventory.category), asc(inventory.name));
 }

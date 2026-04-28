@@ -296,17 +296,46 @@ export const appRouter = router({
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteOtherIncome(input.id); return { success: true }; }),
   }),
 
+    // ─── Delivery Challans ──────────────────────────────────────────────
+  deliveryChallans: router({
+    list: protectedProcedure.query(async () => db.getAllDeliveryChallans()),
+    nextId: protectedProcedure.query(async () => db.getNextId('delivery_challans', 'DC')),
+    create: protectedProcedure.input(z.object({
+      challanId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(),
+      invoiceRef: z.string().optional(), items: z.any().optional(), transportMode: z.string().optional(),
+      vehicleNumber: z.string().optional(), notes: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createDeliveryChallan(input); return { success: true }; }),
+    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateDeliveryChallanStatus(input.id, input.status); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteDeliveryChallan(input.id); return { success: true }; }),
+  }),
+  // ─── Party Groups ──────────────────────────────────────────────────
+  partyGroups: router({
+    list: protectedProcedure.query(async () => db.getAllPartyGroups()),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), type: z.string(), description: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createPartyGroup(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePartyGroup(input.id); return { success: true }; }),
+  }),
+  // ─── GST Reports ──────────────────────────────────────────────────
+  gst: router({
+    summary: protectedProcedure.query(async () => db.getGSTSummary()),
+  }),
+  // ─── Advanced Reports ─────────────────────────────────────────────
+  advancedReports: router({
+    dayBook: protectedProcedure.input(z.object({ date: z.string() })).query(async ({ input }) => db.getDayBook(input.date)),
+    cashflow: protectedProcedure.query(async () => db.getCashflowReport()),
+    aging: protectedProcedure.query(async () => db.getAgingReport()),
+    stockSummary: protectedProcedure.query(async () => db.getStockSummary()),
+  }),
   // ─── Settings ────────────────────────────────────────────────────────
   settings: router({
     list: protectedProcedure.query(async () => db.getAllSettings()),
     upsert: adminProcedure.input(z.object({ key: z.string(), value: z.string() })).mutation(async ({ input }) => { await db.upsertSetting(input.key, input.value); return { success: true }; }),
   }),
-
   // ─── Admin: User Management ──────────────────────────────────────────
   admin: router({
     users: adminProcedure.query(async () => db.getAllUsers()),
     updateRole: adminProcedure.input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) })).mutation(async ({ input }) => { await db.updateUserRole(input.userId, input.role); return { success: true }; }),
   }),
 });
-
 export type AppRouter = typeof appRouter;

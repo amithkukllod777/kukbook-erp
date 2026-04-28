@@ -401,3 +401,32 @@ export const otherIncome = mysqlTable("other_income", {
 });
 
 export type OtherIncomeEntry = typeof otherIncome.$inferSelect;
+
+// ─── Delivery Challans ────────────────────────────────────────────────────
+export const deliveryChallans = mysqlTable("delivery_challans", {
+  id: int("id").autoincrement().primaryKey(),
+  challanId: varchar("challanId", { length: 20 }).notNull().unique(),
+  customerId: int("dc_customerId").notNull(),
+  customerName: varchar("dc_customerName", { length: 200 }).notNull(),
+  date: varchar("dc_date", { length: 10 }).notNull(),
+  invoiceRef: varchar("dc_invoiceRef", { length: 20 }),
+  items: json("dc_items"),
+  transportMode: varchar("transportMode", { length: 100 }),
+  vehicleNumber: varchar("dc_vehicleNumber", { length: 50 }),
+  status: mysqlEnum("dc_status", ["Draft", "Sent", "Delivered"]).default("Draft").notNull(),
+  notes: text("dc_notes"),
+  createdAt: timestamp("dc_createdAt").defaultNow().notNull(),
+});
+
+export type DeliveryChallan = typeof deliveryChallans.$inferSelect;
+
+// ─── Party Groups ─────────────────────────────────────────────────────────
+export const partyGroups = mysqlTable("party_groups", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("pg_name", { length: 200 }).notNull(),
+  type: mysqlEnum("pg_type", ["Customer", "Vendor"]).notNull(),
+  description: text("pg_description"),
+  createdAt: timestamp("pg_createdAt").defaultNow().notNull(),
+});
+
+export type PartyGroup = typeof partyGroups.$inferSelect;

@@ -28,7 +28,8 @@ import {
   Users, Receipt, Building2, ShoppingCart, Package, ClipboardList,
   UserCheck, DollarSign, Warehouse, Link2, Truck, Settings,
   Shield, BarChart3, ChevronDown, RotateCcw, FileCheck,
-  ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp
+  ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp,
+  FileSpreadsheet, IndianRupee, UsersRound, ScrollText, ArrowLeftRight
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -61,6 +62,8 @@ const menuGroups: MenuGroup[] = [
       { icon: FileText, label: "Journal Entries", path: "/journal" },
       { icon: Wallet, label: "Cash & Bank", path: "/cash-bank" },
       { icon: BarChart3, label: "Financial Reports", path: "/reports" },
+      { icon: FileSpreadsheet, label: "Advanced Reports", path: "/advanced-reports" },
+      { icon: IndianRupee, label: "GST Reports", path: "/gst-reports" },
     ],
   },
   {
@@ -103,6 +106,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Truck, label: "Delivery Staff", path: "/delivery-staff" },
       { icon: Truck, label: "Deliveries", path: "/deliveries" },
+      { icon: ScrollText, label: "Delivery Challans", path: "/delivery-challans" },
     ],
   },
   {
@@ -113,10 +117,17 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    label: "Parties",
+    items: [
+      { icon: UsersRound, label: "Party Groups", path: "/party-groups" },
+    ],
+  },
+  {
     label: "Administration",
     items: [
       { icon: Shield, label: "User Management", path: "/admin/users" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
+      { icon: ArrowLeftRight, label: "Import / Export", path: "/import-export" },
     ],
   },
 ];

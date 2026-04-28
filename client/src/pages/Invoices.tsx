@@ -26,7 +26,7 @@ export default function Invoices() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", lines: [{ description: "", qty: 1, rate: "0", amount: "0" }] });
+  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", amount: "0" }] });
 
   const filtered = useMemo(() => invoices.filter((i: any) => {
     const matchSearch = i.customerName.toLowerCase().includes(search.toLowerCase()) || i.invoiceId.includes(search);
@@ -34,7 +34,9 @@ export default function Invoices() {
     return matchSearch && matchStatus;
   }), [invoices, search, filterStatus]);
 
-  const total = form.lines.reduce((s, l) => s + Number(l.amount || 0), 0);
+  const subtotal = form.lines.reduce((s, l) => s + Number(l.amount || 0), 0);
+  const discountAmt = Number(form.discount || 0);
+  const total = Math.max(0, subtotal - discountAmt);
 
   const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", amount: "0" }] });
   const removeLine = (i: number) => { if (form.lines.length <= 1) return; setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) }); };
@@ -46,7 +48,7 @@ export default function Invoices() {
   };
 
   const openCreate = () => {
-    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", lines: [{ description: "", qty: 1, rate: "0", amount: "0" }] });
+    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", amount: "0" }] });
     setOpen(true);
   };
 
@@ -129,6 +131,8 @@ export default function Invoices() {
                         <TableCell><Button variant="ghost" size="icon" onClick={() => removeLine(i)}><Trash2 className="h-3 w-3" /></Button></TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="bg-muted/30"><TableCell colSpan={3} className="text-right text-sm">Subtotal</TableCell><TableCell className="text-right">{fmt(subtotal)}</TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/30"><TableCell colSpan={3} className="text-right text-sm">Discount</TableCell><TableCell><Input type="number" value={form.discount} onChange={e => setForm({ ...form, discount: e.target.value })} className="text-right h-8" /></TableCell><TableCell /></TableRow>
                     <TableRow className="bg-muted/50"><TableCell colSpan={3} className="text-right font-semibold">Total</TableCell><TableCell className="text-right font-bold">{fmt(total)}</TableCell><TableCell /></TableRow>
                   </TableBody>
                 </Table>
