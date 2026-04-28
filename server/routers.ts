@@ -393,6 +393,27 @@ export const appRouter = router({
       id: z.number(), plan: z.string().optional(), status: z.string().optional(),
       paymentGateway: z.string().optional(), paymentId: z.string().optional(), amount: z.string().optional(),
     })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateSubscription(id, data); return { success: true }; }),
+    createCheckout: protectedProcedure.input(z.object({
+      companyId: z.number(),
+      plan: z.string(),
+      interval: z.enum(["monthly", "yearly"]),
+      origin: z.string(),
+    })).mutation(async ({ ctx, input }) => {
+      const { createCheckoutSession } = await import("./stripe-webhook");
+      return createCheckoutSession({
+        companyId: input.companyId,
+        plan: input.plan,
+        interval: input.interval,
+        userId: ctx.user!.id,
+        userEmail: ctx.user!.email || "",
+        userName: ctx.user!.name || "",
+        origin: input.origin,
+      });
+    }),
+    plans: publicProcedure.query(async () => {
+      const { PLANS } = await import("./stripe-products");
+      return PLANS;
+    }),
   }),
 });
 export type AppRouter = typeof appRouter;

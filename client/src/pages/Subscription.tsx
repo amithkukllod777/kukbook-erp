@@ -1,32 +1,35 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CreditCard, Check, Crown, Zap, Building2, ArrowRight } from "lucide-react";
+import { CreditCard, Check, Crown, Zap, Building2, ArrowRight, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
 const plans = [
   {
-    id: "starter", name: "Starter", price: "₹499", period: "/month", description: "For small businesses getting started",
-    features: ["1 User", "500 Invoices/month", "Basic Reports", "Email Support", "1 Firm", "GST Filing"],
+    id: "starter", name: "Starter", monthlyPrice: "₹499", yearlyPrice: "₹4,799", description: "For small businesses getting started",
+    features: ["1 User", "1 Company", "Basic Invoicing & Billing", "Inventory Management", "GST Reports (GSTR-1, GSTR-3B)", "5 Invoice Themes", "Email Support"],
     icon: <Zap className="h-6 w-6 text-blue-600" />,
   },
   {
-    id: "professional", name: "Professional", price: "₹999", period: "/month", description: "For growing businesses",
-    features: ["5 Users", "Unlimited Invoices", "Advanced Reports", "Priority Support", "3 Firms", "GST + E-Way Bill", "Barcode Generation", "WhatsApp Integration", "Inventory Management"],
+    id: "professional", name: "Professional", monthlyPrice: "₹999", yearlyPrice: "₹9,599", description: "For growing businesses",
+    features: ["5 Users", "3 Companies", "All Starter Features", "Payroll Management", "Warehouse Management", "Supply Chain Tracking", "Barcode Generation", "PDF/Excel Export", "WhatsApp/SMS Integration", "Priority Support"],
     icon: <Crown className="h-6 w-6 text-indigo-600" />,
     popular: true,
   },
   {
-    id: "enterprise", name: "Enterprise", price: "₹2,499", period: "/month", description: "For large organizations",
-    features: ["Unlimited Users", "Unlimited Invoices", "Custom Reports", "Dedicated Support", "Unlimited Firms", "Full GST Suite", "API Access", "Custom Integrations", "Warehouse Management", "Supply Chain", "Payroll Module", "Multi-Currency"],
+    id: "enterprise", name: "Enterprise", monthlyPrice: "₹2,499", yearlyPrice: "₹23,999", description: "For large organizations",
+    features: ["Unlimited Users", "Unlimited Companies", "All Professional Features", "E-Way Bill Management", "Delivery Management", "Multi-Firm Support", "Custom Invoice Themes", "API Access", "Dedicated Support"],
     icon: <Building2 className="h-6 w-6 text-purple-600" />,
   },
 ];
 
 export default function Subscription() {
+  const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
   const { data: userCompanies = [] } = trpc.company.list.useQuery();
   const firstCompany = userCompanies[0];
   const { data: trialData } = trpc.subscription.trialStatus.useQuery(
@@ -38,10 +41,37 @@ export default function Subscription() {
     { enabled: !!firstCompany }
   );
 
+  const checkout = trpc.subscription.createCheckout.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        toast.info("Redirecting to Stripe checkout...");
+        window.open(data.url, "_blank");
+      }
+    },
+    onError: (err) => {
+      toast.error(`Checkout failed: ${err.message}`);
+      setLoadingPlan(null);
+    },
+  });
+
   const currentPlan = trialData?.plan || "professional";
   const trialDaysLeft = trialData?.daysLeft ?? 30;
   const trialTotal = 30;
   const status = trialData?.status || "trial";
+
+  const handleChoosePlan = (planId: string) => {
+    if (!firstCompany) {
+      toast.error("Please create a company first");
+      return;
+    }
+    setLoadingPlan(planId);
+    checkout.mutate({
+      companyId: firstCompany.id,
+      plan: planId,
+      interval,
+      origin: window.location.origin,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -74,13 +104,17 @@ export default function Subscription() {
               {status === "expired" && <p className="text-sm text-red-600">Your subscription has expired. Please renew to continue.</p>}
               {!firstCompany && <p className="text-sm text-muted-foreground">Create a company first to start your free trial.</p>}
             </div>
-            <Button size="lg" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-              onClick={() => toast.info("Payment gateway integration coming soon. Contact sales for enterprise plans.")}>
-              <CreditCard className="h-4 w-4 mr-2" />{status === "trial" ? "Upgrade Now" : status === "expired" ? "Renew" : "Manage Plan"}
-            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Billing Interval Toggle */}
+      <div className="flex items-center justify-center gap-3">
+        <Button variant={interval === "monthly" ? "default" : "outline"} size="sm" onClick={() => setInterval("monthly")}>Monthly</Button>
+        <Button variant={interval === "yearly" ? "default" : "outline"} size="sm" onClick={() => setInterval("yearly")}>
+          Yearly <Badge className="ml-2 bg-emerald-100 text-emerald-700 text-xs">Save 20%</Badge>
+        </Button>
+      </div>
 
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -96,8 +130,8 @@ export default function Subscription() {
               <CardTitle className="text-xl">{plan.name}</CardTitle>
               <p className="text-sm text-muted-foreground">{plan.description}</p>
               <div className="pt-2">
-                <span className="text-3xl font-bold">{plan.price}</span>
-                <span className="text-muted-foreground">{plan.period}</span>
+                <span className="text-3xl font-bold">{interval === "monthly" ? plan.monthlyPrice : plan.yearlyPrice}</span>
+                <span className="text-muted-foreground">/{interval === "monthly" ? "month" : "year"}</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -108,15 +142,29 @@ export default function Subscription() {
                   </li>
                 ))}
               </ul>
-              <Button className="w-full" variant={currentPlan === plan.id ? "default" : "outline"}
-                onClick={() => toast.info(`${plan.name} plan — Payment gateway integration coming soon`)}>
-                {currentPlan === plan.id ? "Current Plan" : "Choose Plan"}
-                {currentPlan !== plan.id && <ArrowRight className="h-4 w-4 ml-2" />}
+              <Button className="w-full" variant={currentPlan === plan.id && status === "active" ? "default" : "outline"}
+                disabled={loadingPlan === plan.id || (currentPlan === plan.id && status === "active")}
+                onClick={() => handleChoosePlan(plan.id)}>
+                {loadingPlan === plan.id ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing...</>
+                ) : currentPlan === plan.id && status === "active" ? (
+                  "Current Plan"
+                ) : (
+                  <>Choose {plan.name}<ArrowRight className="h-4 w-4 ml-2" /></>
+                )}
               </Button>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Test Card Info */}
+      <Card className="bg-amber-50 border-amber-200">
+        <CardContent className="p-4">
+          <p className="text-sm text-amber-800 font-medium">Testing Mode</p>
+          <p className="text-sm text-amber-700 mt-1">Use test card number <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">4242 4242 4242 4242</code> with any future expiry date and CVC to test payments.</p>
+        </CardContent>
+      </Card>
 
       {/* Billing Info */}
       <Card>

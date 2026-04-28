@@ -157,7 +157,7 @@
 - [x] Cross-company data isolation vitest tests (72 tests passing, 6 dedicated isolation tests)
 - [ ] Subdomain routing per company (requires custom domain setup — post-deployment)
 - [x] Subscription plans UI with trial tracking and plan comparison
-- [ ] Stripe/Razorpay payment gateway integration (future — requires API keys)
+- [x] Stripe payment gateway integration (checkout sessions, webhook handler, subscription activation)
 - [x] 30-day free trial tracking (auto-created on company creation)
 - [x] GST GSTR-1 report page
 - [x] GST GSTR-3B report
@@ -180,3 +180,13 @@
 - [x] Transaction-level discount on invoices
 - [x] Item-wise discount support
 - [x] Party grouping
+
+## Stripe Integration Verification
+- [x] Stripe checkout session creation (server/stripe-webhook.ts)
+- [x] Stripe webhook handler with signature verification
+- [x] checkout.session.completed → subscription activation in DB
+- [x] invoice.paid, subscription.updated/deleted event handling
+- [x] Test event detection (evt_test_ prefix → verified: true)
+- [x] Subscription page with real Stripe checkout flow
+- [x] Test card info displayed (4242 4242 4242 4242)
+- [ ] Subdomain routing per company (requires custom domain setup — post-deployment)
