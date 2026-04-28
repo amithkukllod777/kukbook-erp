@@ -1,0 +1,1 @@
+ALTER TABLE `invoice_lines` ADD `discount` decimal(15,2) DEFAULT '0' NOT NULL;

@@ -29,6 +29,20 @@
       "when": 1777370979317,
       "tag": "0003_shallow_sheva_callister",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1777371631147,
+      "tag": "0004_cultured_swordsman",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1777372171930,
+      "tag": "0005_shallow_hemingway",
+      "breakpoints": true
     }
   ]
 }

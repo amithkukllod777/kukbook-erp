@@ -144,11 +144,11 @@ export async function getAllInvoices() {
   return invs.map(i => ({ ...i, lines: lines.filter(l => l.invoiceId === i.id) }));
 }
 
-export async function createInvoice(data: { invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string; total: string; lines: { description: string; qty: number; rate: string; amount: string }[] }) {
+export async function createInvoice(data: { invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string; total: string; lines: { description: string; qty: number; rate: string; discount?: string; amount: string }[] }) {
   const db = await getDb(); if (!db) return;
   const [result] = await db.insert(invoices).values({ invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName, date: data.date, dueDate: data.dueDate, status: data.status as any, total: data.total }).$returningId();
   if (data.lines.length > 0) {
-    await db.insert(invoiceLines).values(data.lines.map(l => ({ invoiceId: result.id, description: l.description, qty: l.qty, rate: l.rate, amount: l.amount })));
+    await db.insert(invoiceLines).values(data.lines.map(l => ({ invoiceId: result.id, description: l.description, qty: l.qty, rate: l.rate, discount: l.discount || '0', amount: l.amount })));
   }
 }
 
@@ -211,12 +211,12 @@ export async function getAllInventory() {
   return db.select().from(inventory).orderBy(asc(inventory.name));
 }
 
-export async function createInventoryItem(data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number }) {
+export async function createInventoryItem(data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number; hsnCode?: string; gstRate?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(inventory).values(data as any);
 }
 
-export async function updateInventoryItem(id: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number }>) {
+export async function updateInventoryItem(id: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number; hsnCode: string; gstRate: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(inventory).set(data as any).where(eq(inventory.id, id));
 }
@@ -643,4 +643,31 @@ export async function getAgingReport() {
 export async function getStockSummary() {
   const db = await getDb(); if (!db) return [];
   return db.select().from(inventory).orderBy(asc(inventory.category), asc(inventory.name));
+}
+
+// ─── Party Statement ────────────────────────────────────────────────────────
+export async function getPartyStatement(partyType: string, partyId: number) {
+  const db = await getDb(); if (!db) return { party: null, transactions: [] };
+  const txns: { date: string; type: string; ref: string; debit: number; credit: number }[] = [];
+  if (partyType === 'customer') {
+    const cust = await db.select().from(customers).where(eq(customers.id, partyId)).limit(1);
+    const custInvoices = await db.select().from(invoices).where(eq(invoices.customerId, partyId));
+    const custPayments = await db.select().from(paymentsIn).where(eq(paymentsIn.customerId, partyId));
+    const custReturns = await db.select().from(saleReturns).where(eq(saleReturns.customerId, partyId));
+    custInvoices.forEach(inv => txns.push({ date: inv.date, type: 'Invoice', ref: inv.invoiceId, debit: Number(inv.total), credit: 0 }));
+    custPayments.forEach(p => txns.push({ date: p.date, type: 'Payment In', ref: p.paymentId, debit: 0, credit: Number(p.amount) }));
+    custReturns.forEach(r => txns.push({ date: r.date, type: 'Sale Return', ref: r.returnId, debit: 0, credit: Number(r.amount) }));
+    txns.sort((a, b) => a.date.localeCompare(b.date));
+    return { party: cust[0] || null, transactions: txns };
+  } else {
+    const vend = await db.select().from(vendors).where(eq(vendors.id, partyId)).limit(1);
+    const vendBills = await db.select().from(bills).where(eq(bills.vendorId, partyId));
+    const vendPayments = await db.select().from(paymentsOut).where(eq(paymentsOut.vendorId, partyId));
+    const vendReturns = await db.select().from(purchaseReturns).where(eq(purchaseReturns.vendorId, partyId));
+    vendBills.forEach(b => txns.push({ date: b.date, type: 'Bill', ref: b.billId, debit: 0, credit: Number(b.amount) }));
+    vendPayments.forEach(p => txns.push({ date: p.date, type: 'Payment Out', ref: p.paymentId, debit: Number(p.amount), credit: 0 }));
+    vendReturns.forEach(r => txns.push({ date: r.date, type: 'Purchase Return', ref: r.returnId, debit: Number(r.amount), credit: 0 }));
+    txns.sort((a, b) => a.date.localeCompare(b.date));
+    return { party: vend[0] || null, transactions: txns };
+  }
 }

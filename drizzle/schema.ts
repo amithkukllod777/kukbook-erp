@@ -91,6 +91,7 @@ export const invoiceLines = mysqlTable("invoice_lines", {
   description: varchar("description", { length: 500 }).notNull(),
   qty: int("qty").default(1).notNull(),
   rate: decimal("rate", { precision: 15, scale: 2 }).default("0").notNull(),
+  discount: decimal("discount", { precision: 15, scale: 2 }).default("0").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).default("0").notNull(),
 });
 
@@ -138,6 +139,8 @@ export const inventory = mysqlTable("inventory", {
   cost: decimal("cost", { precision: 15, scale: 2 }).default("0").notNull(),
   reorder: int("reorder").default(10).notNull(),
   warehouseId: int("warehouseId"),
+  hsnCode: varchar("hsnCode", { length: 20 }),
+  gstRate: decimal("gstRate", { precision: 5, scale: 2 }).default("18.00"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

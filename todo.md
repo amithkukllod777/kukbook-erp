@@ -143,7 +143,7 @@
 - [x] Updated sidebar with all new modules (9 groups, 25+ items)
 
 ## Tests & Polish
-- [x] Vitest tests for all modules (53 tests passing)
+- [x] Vitest tests for all modules (59 tests passing)
 - [x] Final status check — zero TypeScript errors
 
 ## Future Enhancements (Not Yet Implemented)
@@ -151,23 +151,23 @@
 - [ ] Subscription plans with payment gateway (Stripe/Razorpay)
 - [ ] 30-day free trial tracking
 - [x] GST GSTR-1 report page
-- [ ] GST GSTR-3B report
-- [ ] HSN code support in inventory
+- [x] GST GSTR-3B report
+- [x] HSN code support in inventory
 - [ ] E-Way Bill workflow
 - [x] Delivery Challans
 - [x] Day Book report
 - [x] Cashflow report
 - [x] AR Aging report
 - [x] Stock Summary report
-- [ ] Party Statement report
+- [x] Party Statement report
 - [ ] Barcode generation and scanning
 - [ ] Invoice themes (multiple templates)
 - [x] Export to CSV for all modules
 - [x] Template download for import
-- [ ] CSV import with parsing and persistence
+- [x] CSV import with parsing and persistence (Customers, Vendors, Inventory)
 - [ ] WhatsApp/SMS integration
 - [ ] Payment reminders (auto-send)
 - [ ] Multi-firm support
 - [x] Transaction-level discount on invoices
-- [ ] Item-wise discount support
+- [x] Item-wise discount support
 - [x] Party grouping

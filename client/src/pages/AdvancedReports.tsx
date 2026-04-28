@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, Clock, Package, Download } from "lucide-react";
+import { BookOpen, TrendingUp, Clock, Package, Download, Users } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
 import { exportToPDF, exportToCSV } from "@/lib/export";
 
@@ -166,12 +167,89 @@ function StockSummaryTab() {
   );
 }
 
+function PartyStatementTab() {
+  const [partyType, setPartyType] = useState<'customer' | 'vendor'>('customer');
+  const [partyId, setPartyId] = useState<number | null>(null);
+  const { data: customers = [] } = trpc.customers.list.useQuery();
+  const { data: vendors = [] } = trpc.vendors.list.useQuery();
+  const { data, isLoading } = trpc.advancedReports.partyStatement.useQuery(
+    { partyType, partyId: partyId! },
+    { enabled: partyId !== null }
+  );
+  const parties = partyType === 'customer' ? customers : vendors;
+  let runningBalance = 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Party Statement</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-4">
+          <Select value={partyType} onValueChange={(v: 'customer' | 'vendor') => { setPartyType(v); setPartyId(null); }}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="customer">Customer</SelectItem>
+              <SelectItem value="vendor">Vendor</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={partyId?.toString() || ''} onValueChange={v => setPartyId(Number(v))}>
+            <SelectTrigger className="w-[250px]"><SelectValue placeholder="Select party..." /></SelectTrigger>
+            <SelectContent>
+              {parties.map((p: any) => <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {data && data.transactions.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => exportToPDF({
+              title: `Party Statement - ${data.party?.name || ''}`,
+              columns: [{header:'Date',key:'date'},{header:'Type',key:'type'},{header:'Ref',key:'ref'},{header:'Debit',key:'debit',format:'currency'},{header:'Credit',key:'credit',format:'currency'},{header:'Balance',key:'balance',format:'currency'}],
+              data: (() => { let bal = 0; return data.transactions.map(t => { bal += t.debit - t.credit; return { ...t, balance: bal }; }); })(),
+              filename: `party-statement-${data.party?.name || 'unknown'}`
+            })}><Download className="h-4 w-4 mr-1" />PDF</Button>
+          )}
+        </div>
+        {!partyId ? <p className="text-muted-foreground text-center py-8">Select a party to view their statement</p>
+        : isLoading ? <p className="text-muted-foreground">Loading...</p>
+        : !data || data.transactions.length === 0 ? <p className="text-muted-foreground text-center py-8">No transactions found</p>
+        : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b text-left text-muted-foreground"><th className="pb-3 font-medium">Date</th><th className="pb-3 font-medium">Type</th><th className="pb-3 font-medium">Reference</th><th className="pb-3 font-medium text-right">Debit</th><th className="pb-3 font-medium text-right">Credit</th><th className="pb-3 font-medium text-right">Balance</th></tr></thead>
+              <tbody>
+                {data.transactions.map((t: any, i: number) => {
+                  runningBalance += t.debit - t.credit;
+                  return (
+                    <tr key={i} className="border-b">
+                      <td className="py-3">{t.date}</td>
+                      <td className="py-3"><Badge variant="outline">{t.type}</Badge></td>
+                      <td className="py-3 font-medium">{t.ref}</td>
+                      <td className="py-3 text-right">{t.debit ? fmt(t.debit) : ''}</td>
+                      <td className="py-3 text-right">{t.credit ? fmt(t.credit) : ''}</td>
+                      <td className="py-3 text-right font-medium">{fmt(runningBalance)}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="font-bold bg-muted/50">
+                  <td className="py-3" colSpan={3}>Closing Balance</td>
+                  <td className="py-3 text-right">{fmt(data.transactions.reduce((s: number, t: any) => s + t.debit, 0))}</td>
+                  <td className="py-3 text-right">{fmt(data.transactions.reduce((s: number, t: any) => s + t.credit, 0))}</td>
+                  <td className="py-3 text-right">{fmt(runningBalance)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdvancedReports() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Advanced Reports</h1>
-        <p className="text-muted-foreground">Day Book, Cash Flow, Aging, and Stock Summary reports</p>
+        <p className="text-muted-foreground">Day Book, Cash Flow, Aging, Stock Summary, and Party Statement reports</p>
       </div>
       <Tabs defaultValue="daybook">
         <TabsList>
@@ -179,11 +257,13 @@ export default function AdvancedReports() {
           <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
           <TabsTrigger value="aging">AR Aging</TabsTrigger>
           <TabsTrigger value="stock">Stock Summary</TabsTrigger>
+          <TabsTrigger value="party">Party Statement</TabsTrigger>
         </TabsList>
         <TabsContent value="daybook"><DayBookTab /></TabsContent>
         <TabsContent value="cashflow"><CashflowTab /></TabsContent>
         <TabsContent value="aging"><AgingTab /></TabsContent>
         <TabsContent value="stock"><StockSummaryTab /></TabsContent>
+        <TabsContent value="party"><PartyStatementTab /></TabsContent>
       </Tabs>
     </div>
   );

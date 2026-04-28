@@ -67,7 +67,7 @@ export const appRouter = router({
     nextId: protectedProcedure.query(async () => db.getNextId('invoices', 'INV')),
     create: protectedProcedure.input(z.object({
       invoiceId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), dueDate: z.string(), status: z.string(), total: z.string(),
-      lines: z.array(z.object({ description: z.string(), qty: z.number(), rate: z.string(), amount: z.string() }))
+      lines: z.array(z.object({ description: z.string(), qty: z.number(), rate: z.string(), discount: z.string().optional(), amount: z.string() }))
     })).mutation(async ({ input }) => { await db.createInvoice(input); return { success: true }; }),
     updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => {
       await db.updateInvoiceStatus(input.id, input.status);
@@ -165,10 +165,10 @@ export const appRouter = router({
   inventory: router({
     list: protectedProcedure.query(async () => db.getAllInventory()),
     create: protectedProcedure.input(z.object({
-      sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number(), warehouseId: z.number().optional()
+      sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional()
     })).mutation(async ({ input }) => { await db.createInventoryItem(input); return { success: true }; }),
     update: protectedProcedure.input(z.object({
-      id: z.number(), sku: z.string().optional(), name: z.string().optional(), category: z.string().optional(), qty: z.number().optional(), cost: z.string().optional(), reorder: z.number().optional(), warehouseId: z.number().optional()
+      id: z.number(), sku: z.string().optional(), name: z.string().optional(), category: z.string().optional(), qty: z.number().optional(), cost: z.string().optional(), reorder: z.number().optional(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional()
     })).mutation(async ({ input }) => {
       const { id, ...data } = input;
       await db.updateInventoryItem(id, data);
@@ -326,6 +326,25 @@ export const appRouter = router({
     cashflow: protectedProcedure.query(async () => db.getCashflowReport()),
     aging: protectedProcedure.query(async () => db.getAgingReport()),
     stockSummary: protectedProcedure.query(async () => db.getStockSummary()),
+    partyStatement: protectedProcedure.input(z.object({ partyType: z.enum(['customer', 'vendor']), partyId: z.number() })).query(async ({ input }) => db.getPartyStatement(input.partyType, input.partyId)),
+  }),
+  // ─── Bulk Import ─────────────────────────────────────────────────────
+  bulkImport: router({
+    customers: protectedProcedure.input(z.object({ rows: z.array(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional() })) })).mutation(async ({ input }) => {
+      let imported = 0;
+      for (const row of input.rows) { await db.createCustomer(row); imported++; }
+      return { success: true, imported };
+    }),
+    vendors: protectedProcedure.input(z.object({ rows: z.array(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional() })) })).mutation(async ({ input }) => {
+      let imported = 0;
+      for (const row of input.rows) { await db.createVendor(row); imported++; }
+      return { success: true, imported };
+    }),
+    inventory: protectedProcedure.input(z.object({ rows: z.array(z.object({ sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number().optional() })) })).mutation(async ({ input }) => {
+      let imported = 0;
+      for (const row of input.rows) { await db.createInventoryItem({ ...row, reorder: row.reorder || 10 }); imported++; }
+      return { success: true, imported };
+    }),
   }),
   // ─── Settings ────────────────────────────────────────────────────────
   settings: router({

@@ -151,6 +151,8 @@ vi.mock("./db", () => {
     getCashflowReport: vi.fn().mockResolvedValue({ inflows: 50000, outflows: 30000, net: 20000 }),
     getAgingReport: vi.fn().mockResolvedValue([{ id: 1, invoiceId: "INV-001", customerName: "Acme", dueDate: "2026-03-01", total: "5000", daysOverdue: 58, bucket: "31-60" }]),
     getStockSummary: vi.fn().mockResolvedValue([{ id: 1, sku: "WDG-001", name: "Widget A", category: "Widgets", qty: 5, cost: "12.50", reorder: 10 }]),
+    getPartyStatement: vi.fn().mockResolvedValue({ party: { id: 1, name: "Acme Corp" }, transactions: [{ date: "2026-01-15", type: "Invoice", ref: "INV-001", debit: 1000, credit: 0 }] }),
+    getGSTSummary: vi.fn().mockResolvedValue({ salesGST: 5000, purchaseGST: 3000, expenseGST: 500, netGST: 1500, invoices: [], bills: [], expenses: [] }),
   };
 });
 
@@ -607,5 +609,53 @@ describe("Advanced Reports", () => {
     const caller = appRouter.createCaller(createUserContext());
     const data = await caller.advancedReports.stockSummary();
     expect(Array.isArray(data)).toBe(true);
+  });
+
+  it("returns party statement for customer", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.advancedReports.partyStatement({ partyType: "customer", partyId: 1 });
+    expect(data).toHaveProperty("party");
+    expect(data).toHaveProperty("transactions");
+    expect(Array.isArray(data.transactions)).toBe(true);
+  });
+
+  it("returns party statement for vendor", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.advancedReports.partyStatement({ partyType: "vendor", partyId: 1 });
+    expect(data).toHaveProperty("party");
+    expect(data).toHaveProperty("transactions");
+  });
+});
+
+describe("bulkImport", () => {
+  it("bulk imports customers", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.bulkImport.customers({ rows: [{ name: "Test Customer" }, { name: "Another Customer", email: "a@b.com" }] });
+    expect(result.success).toBe(true);
+    expect(result.imported).toBe(2);
+  });
+
+  it("bulk imports vendors", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.bulkImport.vendors({ rows: [{ name: "Test Vendor" }] });
+    expect(result.success).toBe(true);
+    expect(result.imported).toBe(1);
+  });
+
+  it("bulk imports inventory items", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.bulkImport.inventory({ rows: [{ sku: "SKU-001", name: "Widget", qty: 100, cost: "25.00" }] });
+    expect(result.success).toBe(true);
+    expect(result.imported).toBe(1);
+  });
+});
+
+describe("gst", () => {
+  it("returns GST summary", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const data = await caller.gst.summary();
+    expect(data).toHaveProperty("salesGST");
+    expect(data).toHaveProperty("purchaseGST");
+    expect(data).toHaveProperty("netGST");
   });
 });

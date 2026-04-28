@@ -8,6 +8,8 @@ import { exportToPDF, exportToCSV } from "@/lib/export";
 
 export default function GSTReports() {
   const { data, isLoading } = trpc.gst.summary.useQuery();
+  const { data: inventoryData = [] } = trpc.inventory.list.useQuery();
+  const hsnItems = inventoryData.filter((i: any) => i.hsnCode);
 
   const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(n);
 
@@ -101,14 +103,38 @@ export default function GSTReports() {
 
             <TabsContent value="hsn" className="space-y-4">
               <Card>
-                <CardHeader><CardTitle>HSN Summary</CardTitle></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>HSN Summary</CardTitle>
+                  {hsnItems.length > 0 && <Button size="sm" variant="outline" onClick={() => exportToCSV({ title: "HSN Summary", columns: [{header:"HSN Code",key:"hsn"},{header:"Item",key:"name"},{header:"GST Rate",key:"gst"},{header:"Qty",key:"qty"},{header:"Taxable Value",key:"val"}], data: hsnItems.map((i: any) => ({hsn:i.hsnCode,name:i.name,gst:`${i.gstRate||18}%`,qty:i.qty,val:(Number(i.qty)*Number(i.cost)).toFixed(2)})), filename: "hsn-summary" })}><Download className="h-4 w-4 mr-1" />Excel</Button>}
+                </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">HSN/SAC code-wise summary of supplies. Configure HSN codes in inventory items to see detailed breakdown.</p>
-                  <div className="mt-4 p-8 border-2 border-dashed rounded-lg text-center text-muted-foreground">
-                    <IndianRupee className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">Add HSN codes to inventory items</p>
-                    <p className="text-sm">HSN summary will auto-populate from invoice line items</p>
-                  </div>
+                  {hsnItems.length === 0 ? (
+                    <div className="p-8 border-2 border-dashed rounded-lg text-center text-muted-foreground">
+                      <IndianRupee className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                      <p className="font-medium">Add HSN codes to inventory items</p>
+                      <p className="text-sm">Go to Inventory and add HSN codes to see the summary here</p>
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-muted-foreground"><th className="pb-3 font-medium">HSN Code</th><th className="pb-3 font-medium">Item</th><th className="pb-3 font-medium text-right">GST Rate</th><th className="pb-3 font-medium text-right">Qty</th><th className="pb-3 font-medium text-right">Taxable Value</th><th className="pb-3 font-medium text-right">GST Amount</th></tr></thead>
+                      <tbody>
+                        {hsnItems.map((i: any) => {
+                          const val = Number(i.qty) * Number(i.cost);
+                          const gstR = Number(i.gstRate || 18);
+                          return (
+                            <tr key={i.id} className="border-b">
+                              <td className="py-3 font-mono">{i.hsnCode}</td>
+                              <td className="py-3">{i.name}</td>
+                              <td className="py-3 text-right">{gstR}%</td>
+                              <td className="py-3 text-right">{i.qty}</td>
+                              <td className="py-3 text-right">{fmt(val)}</td>
+                              <td className="py-3 text-right font-medium">{fmt(val * gstR / 100)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

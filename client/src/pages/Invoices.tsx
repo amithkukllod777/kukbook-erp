@@ -26,7 +26,7 @@ export default function Invoices() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", amount: "0" }] });
+  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
 
   const filtered = useMemo(() => invoices.filter((i: any) => {
     const matchSearch = i.customerName.toLowerCase().includes(search.toLowerCase()) || i.invoiceId.includes(search);
@@ -38,17 +38,21 @@ export default function Invoices() {
   const discountAmt = Number(form.discount || 0);
   const total = Math.max(0, subtotal - discountAmt);
 
-  const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", amount: "0" }] });
+  const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
   const removeLine = (i: number) => { if (form.lines.length <= 1) return; setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) }); };
   const updateLine = (i: number, field: string, value: any) => {
     const lines = [...form.lines];
     (lines[i] as any)[field] = value;
-    if (field === "qty" || field === "rate") { lines[i].amount = String(Number(lines[i].qty) * Number(lines[i].rate)); }
+    if (field === "qty" || field === "rate" || field === "discount") {
+      const lineTotal = Number(lines[i].qty) * Number(lines[i].rate);
+      const lineDisc = Number(lines[i].discount || 0);
+      lines[i].amount = String(lineTotal - lineDisc);
+    }
     setForm({ ...form, lines });
   };
 
   const openCreate = () => {
-    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", amount: "0" }] });
+    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
     setOpen(true);
   };
 
@@ -120,20 +124,21 @@ export default function Invoices() {
               <div className="flex items-center justify-between mb-2"><label className="text-sm font-medium">Line Items</label><Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add</Button></div>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Description</TableHead><TableHead className="w-[80px]">Qty</TableHead><TableHead className="w-[110px]">Rate</TableHead><TableHead className="w-[110px]">Amount</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Description</TableHead><TableHead className="w-[80px]">Qty</TableHead><TableHead className="w-[100px]">Rate</TableHead><TableHead className="w-[100px]">Discount</TableHead><TableHead className="w-[100px]">Amount</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
                   <TableBody>
                     {form.lines.map((line, i) => (
                       <TableRow key={i}>
                         <TableCell><Input value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Item description" /></TableCell>
                         <TableCell><Input type="number" value={line.qty} onChange={e => updateLine(i, "qty", Number(e.target.value))} /></TableCell>
                         <TableCell><Input type="number" value={line.rate} onChange={e => updateLine(i, "rate", e.target.value)} /></TableCell>
+                        <TableCell><Input type="number" value={line.discount} onChange={e => updateLine(i, "discount", e.target.value)} placeholder="0" /></TableCell>
                         <TableCell className="text-right font-medium">{fmt(Number(line.amount))}</TableCell>
                         <TableCell><Button variant="ghost" size="icon" onClick={() => removeLine(i)}><Trash2 className="h-3 w-3" /></Button></TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-muted/30"><TableCell colSpan={3} className="text-right text-sm">Subtotal</TableCell><TableCell className="text-right">{fmt(subtotal)}</TableCell><TableCell /></TableRow>
-                    <TableRow className="bg-muted/30"><TableCell colSpan={3} className="text-right text-sm">Discount</TableCell><TableCell><Input type="number" value={form.discount} onChange={e => setForm({ ...form, discount: e.target.value })} className="text-right h-8" /></TableCell><TableCell /></TableRow>
-                    <TableRow className="bg-muted/50"><TableCell colSpan={3} className="text-right font-semibold">Total</TableCell><TableCell className="text-right font-bold">{fmt(total)}</TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/30"><TableCell colSpan={4} className="text-right text-sm">Subtotal</TableCell><TableCell className="text-right">{fmt(subtotal)}</TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/30"><TableCell colSpan={4} className="text-right text-sm">Additional Discount</TableCell><TableCell><Input type="number" value={form.discount} onChange={e => setForm({ ...form, discount: e.target.value })} className="text-right h-8" /></TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/50"><TableCell colSpan={4} className="text-right font-semibold">Total</TableCell><TableCell className="text-right font-bold">{fmt(total)}</TableCell><TableCell /></TableRow>
                   </TableBody>
                 </Table>
               </div>
