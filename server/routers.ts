@@ -82,8 +82,10 @@ export const appRouter = router({
     create: companyProcedure.input(z.object({
       invoiceId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), dueDate: z.string(), status: z.string(),
       subtotal: z.string(), cgst: z.string().default('0'), sgst: z.string().default('0'), igst: z.string().default('0'), total: z.string(),
-      lines: z.array(z.object({ description: z.string(), hsnCode: z.string().optional(), qty: z.number(), rate: z.string(), discount: z.string().optional(), gstRate: z.string().optional(), amount: z.string() }))
+      lines: z.array(z.object({ description: z.string(), hsnCode: z.string().optional(), qty: z.number(), rate: z.string(), discount: z.string().optional(), gstRate: z.string().optional(), amount: z.string() })),
+      tcsSection: z.string().optional(), tcsRate: z.string().optional(), tcsAmount: z.string().optional(), tcsTotal: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createInvoice(ctx.companyId, input); return { success: true }; }),
+    tcsSections: publicProcedure.query(() => db.TCS_SECTIONS),
     updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => {
       await db.updateInvoiceStatus(input.id, ctx.companyId, input.status);
       if (input.status === 'Sent') {
@@ -152,10 +154,12 @@ export const appRouter = router({
     create: companyProcedure.input(z.object({
       billId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), dueDate: z.string(),
       subtotal: z.string().optional(), cgst: z.string().optional(), sgst: z.string().optional(), igst: z.string().optional(),
-      amount: z.string(), description: z.string().optional()
+      amount: z.string(), description: z.string().optional(),
+      tdsSection: z.string().optional(), tdsRate: z.string().optional(), tdsAmount: z.string().optional(), tdsNetPayable: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createBill(ctx.companyId, input); return { success: true }; }),
     updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateBillStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteBill(input.id, ctx.companyId); return { success: true }; }),
+    tdsSections: publicProcedure.query(() => db.TDS_SECTIONS),
   }),
 
   // ─── Purchase Returns ───────────────────────────────────────────────
@@ -388,6 +392,48 @@ export const appRouter = router({
   admin: router({
     users: adminProcedure.query(async () => db.getAllUsers()),
     updateRole: adminProcedure.input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) })).mutation(async ({ input }) => { await db.updateUserRole(input.userId, input.role); return { success: true }; }),
+  }),
+
+  // ─── Invites ──────────────────────────────────────────────────────────
+  invites: router({
+    list: companyProcedure.query(async ({ ctx }) => db.getCompanyInvites(ctx.companyId)),
+    create: companyProcedure.input(z.object({
+      email: z.string().email(), role: z.enum(['admin', 'staff', 'viewer'])
+    })).mutation(async ({ ctx, input }) => {
+      const result = await db.createInvite(ctx.companyId, input.email, input.role, ctx.user.id);
+      return { success: true, invite: result };
+    }),
+    accept: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx, input }) => {
+      return db.acceptInvite(input.token, ctx.user.id);
+    }),
+    cancel: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      await db.cancelInvite(input.id, ctx.companyId);
+      return { success: true };
+    }),
+    getByToken: publicProcedure.input(z.object({ token: z.string() })).query(async ({ input }) => {
+      const invite = await db.getInviteByToken(input.token);
+      if (!invite) return null;
+      return { id: invite.id, email: invite.email, role: invite.role, status: invite.status, expiresAt: invite.expiresAt };
+    }),
+  }),
+
+  // ─── Verification ─────────────────────────────────────────────────────
+  verification: router({
+    sendCode: protectedProcedure.input(z.object({
+      type: z.enum(['email', 'phone']), target: z.string()
+    })).mutation(async ({ ctx, input }) => {
+      const result = await db.createVerificationCode(ctx.user.id, input.type, input.target);
+      // In production, send via SMS/email service. For now, code is returned for testing.
+      return { success: true, message: 'Verification code sent', expiresAt: result?.expiresAt, code: result?.code };
+    }),
+    verify: protectedProcedure.input(z.object({
+      target: z.string(), code: z.string()
+    })).mutation(async ({ ctx, input }) => {
+      return db.verifyCode(ctx.user.id, input.target, input.code);
+    }),
+    status: protectedProcedure.query(async ({ ctx }) => {
+      return db.getVerificationStatus(ctx.user.id);
+    }),
   }),
 
   // ─── Company (Multi-Tenant) ───────────────────────────────────────────

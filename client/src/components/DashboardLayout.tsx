@@ -31,7 +31,7 @@ import {
   ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp,
   FileSpreadsheet, IndianRupee, UsersRound, ScrollText, ArrowLeftRight,
   FileBarChart, Palette, Barcode, Bell, MessageSquare, Building, Crown,
-  ChevronsUpDown, Check
+  ChevronsUpDown, Check, UserPlus, ShieldCheck
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -141,6 +141,8 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Building2, label: "Company Profile", path: "/company-profile" },
       { icon: Shield, label: "User Management", path: "/admin/users" },
+      { icon: UserPlus, label: "Invite Members", path: "/invite-members" },
+      { icon: ShieldCheck, label: "Verification", path: "/verification" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
       { icon: ArrowLeftRight, label: "Import / Export", path: "/import-export" },
       { icon: Palette, label: "Invoice Themes", path: "/invoice-themes" },

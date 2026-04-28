@@ -232,8 +232,8 @@
 - [x] TDS calculation (New Tax Regime FY 2025-26 with ₹75K std deduction, 87A rebate)
 - [x] Statutory summary (PF deposit, ESI deposit, PT, TDS monthly totals)
 - [x] Employee-wise payroll breakdown with all Indian deductions
-- [ ] TDS on vendor payments (Section 194C/194J etc.) — future enhancement
-- [ ] TCS calculation on sales — future enhancement
+- [x] TDS on vendor payments (Section 194C/194J/194H/194I/194Q with rate lookup, auto-deduction on bills)
+- [x] TCS calculation on sales (Section 206C(1H)/206C(1)/206C(1F)/206C(1G) with auto-collection on invoices)
 
 ## Priority 5 — Proper Signup & Company Registration
 - [x] 3-step onboarding wizard (Company → GST & PAN → Contact) with step indicator
@@ -246,8 +246,8 @@
 - [x] Company Profile editable with GSTIN/PAN validation
 - [x] Team members list with role badges
 - [x] Company Profile link in sidebar (Administration section)
-- [ ] Email/phone verification (requires external SMS/email service — future)
-- [ ] Multi-user invite flow via email link (future enhancement)
+- [x] Email/phone verification (OTP-based 6-digit code, test mode shows code in UI, DB-backed)
+- [x] Multi-user invite flow (token-based invite system with role selection, accept/cancel, sidebar link)
 - [x] Accounting module Vitest tests (18 new tests: COA seed, General Ledger, Trial Balance, P&L, Balance Sheet, Journal Entries with account IDs, auto-posting verification) — 93 total tests passing
 - [x] Employee DB helpers updated to persist Indian salary fields (basicSalary, hra, da, specialAllowance, panNumber, uanNumber, esiNumber, pfOptOut)
 - [x] Payroll DB helper updated to persist Indian deduction fields (pfEmployee, pfEmployer, esiEmployee, esiEmployer, professionalTax, tds)

@@ -54,6 +54,9 @@ const Messaging = lazy(() => import("./pages/Messaging"));
 const MultiFirm = lazy(() => import("./pages/MultiFirm"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 const CompanyProfile = lazy(() => import("./pages/CompanyProfile"));
+const InviteMembers = lazy(() => import("./pages/InviteMembers"));
+const Verification = lazy(() => import("./pages/Verification"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 
 function PageLoader() {
   return (
@@ -110,6 +113,8 @@ function CompanyRoutes() {
           <Route path="/admin/users" component={AdminUsers} />
           <Route path="/admin/settings" component={AdminSettings} />
           <Route path="/company-profile" component={CompanyProfile} />
+          <Route path="/invite-members" component={InviteMembers} />
+          <Route path="/verification" component={Verification} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
@@ -211,6 +216,9 @@ function CompanyGate() {
 
   return (
     <Switch>
+      {/* Accept invite route (authenticated) */}
+      <Route path="/invite/:token" component={AcceptInvite} />
+
       {/* Slug-based company routes: /app/:slug/... */}
       <Route path="/app/:slug" nest>
         {(params: { slug: string }) => <SlugRouter slug={params.slug} />}
@@ -240,11 +248,14 @@ function AppRouter() {
     );
   }
 
-  // If not authenticated, show landing page
+  // If not authenticated, show landing page or accept invite page
   if (!user) {
     return (
       <Suspense fallback={<PageLoader />}>
-        <Landing />
+        <Switch>
+          <Route path="/invite/:token" component={AcceptInvite} />
+          <Route><Landing /></Route>
+        </Switch>
       </Suspense>
     );
   }

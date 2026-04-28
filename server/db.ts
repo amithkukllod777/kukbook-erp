@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -8,7 +9,7 @@ import {
   saleReturns, purchaseReturns, estimates, estimateLines,
   paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome,
   deliveryChallans, partyGroups,
-  companies, companyMembers, subscriptions
+  companies, companyMembers, subscriptions, companyInvites, verificationCodes
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -153,6 +154,7 @@ export async function seedDefaultCOA(companyId: number) {
     { code: '2103', name: 'SGST Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100', isSystem: true },
     { code: '2104', name: 'IGST Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100', isSystem: true },
     { code: '2105', name: 'TDS Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100' },
+    { code: '2106', name: 'TCS Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100' },
     { code: '2106', name: 'Salary Payable', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2100' },
     { code: '2200', name: 'Long-term Liabilities', type: 'Liability', nature: 'Credit', isGroup: true, parentCode: '2000' },
     { code: '2201', name: 'Loans', type: 'Liability', nature: 'Credit', isGroup: false, parentCode: '2200' },
@@ -459,6 +461,7 @@ export async function getAllInvoices(companyId: number) {
 export async function createInvoice(companyId: number, data: {
   invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string;
   subtotal: string; cgst: string; sgst: string; igst: string; total: string;
+  tcsSection?: string; tcsRate?: string; tcsAmount?: string; tcsTotal?: string;
   lines: { description: string; hsnCode?: string; qty: number; rate: string; discount?: string; gstRate?: string; amount: string }[]
 }) {
   const db = await getDb(); if (!db) return;
@@ -466,7 +469,10 @@ export async function createInvoice(companyId: number, data: {
     invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName,
     date: data.date, dueDate: data.dueDate, status: data.status as any,
     subtotal: data.subtotal, cgst: data.cgst || '0', sgst: data.sgst || '0', igst: data.igst || '0',
-    total: data.total, companyId
+    total: data.tcsTotal || data.total,
+    tcsSection: data.tcsSection || null, tcsRate: data.tcsRate || '0',
+    tcsAmount: data.tcsAmount || '0', tcsTotal: data.tcsTotal || '0',
+    companyId
   } as any).$returningId();
   if (data.lines.length > 0) {
     await db.insert(invoiceLines).values(data.lines.map(l => ({
@@ -481,7 +487,8 @@ export async function createInvoice(companyId: number, data: {
     const salesAcct = await getSystemAccount(companyId, 'Sales');
     if (arAcct && salesAcct) {
       const jeLines: { accountId: number; accountName: string; debit: string; credit: string }[] = [];
-      jeLines.push({ accountId: arAcct.id, accountName: arAcct.name, debit: data.total, credit: '0' });
+      const totalWithTcs = data.tcsTotal || data.total;
+      jeLines.push({ accountId: arAcct.id, accountName: arAcct.name, debit: totalWithTcs, credit: '0' });
       const subtotal = Number(data.subtotal) || Number(data.total);
       const cgst = Number(data.cgst) || 0;
       const sgst = Number(data.sgst) || 0;
@@ -498,6 +505,12 @@ export async function createInvoice(companyId: number, data: {
       if (igst > 0) {
         const igstAcct = await getSystemAccount(companyId, 'IGST Payable');
         if (igstAcct) jeLines.push({ accountId: igstAcct.id, accountName: igstAcct.name, debit: '0', credit: String(igst) });
+      }
+      // TCS auto-posting
+      const tcsAmt = Number(data.tcsAmount) || 0;
+      if (tcsAmt > 0) {
+        const tcsAcct = await getSystemAccount(companyId, 'TCS Payable');
+        if (tcsAcct) jeLines.push({ accountId: tcsAcct.id, accountName: tcsAcct.name, debit: '0', credit: String(tcsAmt) });
       }
       const jeId = await autoPostJournalEntry(companyId, {
         date: data.date, description: `Sales Invoice ${data.invoiceId} - ${data.customerName}`,
@@ -555,14 +568,18 @@ export async function getAllBills(companyId: number) {
 export async function createBill(companyId: number, data: {
   billId: string; vendorId: number; vendorName: string; date: string; dueDate: string;
   subtotal?: string; cgst?: string; sgst?: string; igst?: string;
-  amount: string; description?: string
+  amount: string; description?: string;
+  tdsSection?: string; tdsRate?: string; tdsAmount?: string; tdsNetPayable?: string;
 }) {
   const db = await getDb(); if (!db) return;
   const [result] = await db.insert(bills).values({
     billId: data.billId, vendorId: data.vendorId, vendorName: data.vendorName,
     date: data.date, dueDate: data.dueDate,
     subtotal: data.subtotal || data.amount, cgst: data.cgst || '0', sgst: data.sgst || '0', igst: data.igst || '0',
-    amount: data.amount, description: data.description, companyId
+    amount: data.amount, description: data.description,
+    tdsSection: data.tdsSection || null, tdsRate: data.tdsRate || '0',
+    tdsAmount: data.tdsAmount || '0', tdsNetPayable: data.tdsNetPayable || '0',
+    companyId
   } as any).$returningId();
   // Auto-post: Dr. Purchases + GST Input, Cr. Accounts Payable
   try {
@@ -587,7 +604,15 @@ export async function createBill(companyId: number, data: {
         const igstAcct = await getSystemAccount(companyId, 'IGST Input');
         if (igstAcct) jeLines.push({ accountId: igstAcct.id, accountName: igstAcct.name, debit: String(igst), credit: '0' });
       }
-      jeLines.push({ accountId: apAcct.id, accountName: apAcct.name, debit: '0', credit: data.amount });
+      // TDS auto-posting: Dr. AP (reduce payable), Cr. TDS Payable
+      const tdsAmt = Number(data.tdsAmount) || 0;
+      if (tdsAmt > 0) {
+        const tdsAcct = await getSystemAccount(companyId, 'TDS Payable');
+        if (tdsAcct) jeLines.push({ accountId: tdsAcct.id, accountName: tdsAcct.name, debit: '0', credit: String(tdsAmt) });
+      }
+      // AP credit = net payable (amount - TDS)
+      const apCredit = tdsAmt > 0 ? String(Number(data.amount) - tdsAmt) : data.amount;
+      jeLines.push({ accountId: apAcct.id, accountName: apAcct.name, debit: '0', credit: apCredit });
       const jeId = await autoPostJournalEntry(companyId, {
         date: data.date, description: `Purchase Bill ${data.billId} - ${data.vendorName}`,
         sourceType: 'bill', sourceId: result.id, lines: jeLines
@@ -1368,4 +1393,111 @@ export async function getTrialStatus(companyId: number) {
   const daysLeft = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
   const isTrialActive = sub.status === 'trial' && daysLeft > 0;
   return { isTrialActive, daysLeft, plan: sub.plan, status: sub.status, trialEndDate: sub.trialEndDate, subscriptionEndDate: sub.subscriptionEndDate };
+}
+
+// ─── TDS on Vendor Payments ──────────────────────────────────────────────────
+export const TDS_SECTIONS = [
+  { code: '194C', name: 'Contractors', rateIndividual: 1, rateOthers: 2 },
+  { code: '194J', name: 'Professional/Technical Fees', rateIndividual: 10, rateOthers: 10 },
+  { code: '194JA', name: 'Technical Services (Reduced)', rateIndividual: 2, rateOthers: 2 },
+  { code: '194H', name: 'Commission/Brokerage', rateIndividual: 5, rateOthers: 5 },
+  { code: '194I(a)', name: 'Rent - Plant/Machinery', rateIndividual: 2, rateOthers: 2 },
+  { code: '194I(b)', name: 'Rent - Land/Building', rateIndividual: 10, rateOthers: 10 },
+  { code: '194Q', name: 'Purchase of Goods (>50L)', rateIndividual: 0.1, rateOthers: 0.1 },
+  { code: '194A', name: 'Interest (other than securities)', rateIndividual: 10, rateOthers: 10 },
+  { code: '194D', name: 'Insurance Commission', rateIndividual: 5, rateOthers: 10 },
+];
+
+// ─── TCS on Sales ────────────────────────────────────────────────────────────
+export const TCS_SECTIONS = [
+  { code: '206C(1H)', name: 'Sale of Goods (>50L)', rate: 0.1 },
+  { code: '206C(1)', name: 'Scrap', rate: 1 },
+  { code: '206C(1F)', name: 'Motor Vehicle (>10L)', rate: 1 },
+  { code: '206C(1G)', name: 'Foreign Remittance (LRS)', rate: 5 },
+  { code: '206C(1G)T', name: 'Tour Package', rate: 5 },
+];
+
+
+export async function createInvite(companyId: number, email: string, role: string, invitedBy: number) {
+  const db = await getDb(); if (!db) return null;
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const [result] = await db.insert(companyInvites).values({
+    companyId, email, role, token, invitedBy, expiresAt
+  } as any).$returningId();
+  return { id: result.id, token, expiresAt };
+}
+
+export async function getCompanyInvites(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(companyInvites).where(eq(companyInvites.companyId, companyId)).orderBy(desc(companyInvites.createdAt));
+}
+
+export async function getInviteByToken(token: string) {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(companyInvites).where(eq(companyInvites.token, token)).limit(1);
+  return rows[0] || null;
+}
+
+export async function acceptInvite(token: string, userId: number) {
+  const db = await getDb(); if (!db) return { success: false, error: 'DB unavailable' };
+  const invite = await getInviteByToken(token);
+  if (!invite) return { success: false, error: 'Invalid invite' };
+  if (invite.status !== 'pending') return { success: false, error: 'Invite already ' + invite.status };
+  if (new Date(invite.expiresAt) < new Date()) {
+    await db.update(companyInvites).set({ status: 'expired' } as any).where(eq(companyInvites.id, invite.id));
+    return { success: false, error: 'Invite expired' };
+  }
+  await db.insert(companyMembers).values({ companyId: invite.companyId, userId, role: invite.role } as any);
+  await db.update(companyInvites).set({ status: 'accepted' } as any).where(eq(companyInvites.id, invite.id));
+  return { success: true, companyId: invite.companyId };
+}
+
+export async function cancelInvite(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.update(companyInvites).set({ status: 'cancelled' } as any).where(and(eq(companyInvites.id, id), eq(companyInvites.companyId, companyId)));
+}
+
+// ─── Verification Codes ──────────────────────────────────────────────────────
+export async function createVerificationCode(userId: number, type: string, target: string) {
+  const db = await getDb(); if (!db) return null;
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await db.delete(verificationCodes).where(
+    and(eq(verificationCodes.userId, userId), eq(verificationCodes.target, target))
+  );
+  const [result] = await db.insert(verificationCodes).values({
+    userId, type, target, code, expiresAt
+  } as any).$returningId();
+  return { id: result.id, code, expiresAt };
+}
+
+export async function verifyCode(userId: number, target: string, inputCode: string) {
+  const db = await getDb(); if (!db) return { success: false, error: 'DB unavailable' };
+  const rows = await db.select().from(verificationCodes).where(
+    and(eq(verificationCodes.userId, userId), eq(verificationCodes.target, target))
+  ).orderBy(desc(verificationCodes.createdAt)).limit(1);
+  const record = rows[0];
+  if (!record) return { success: false, error: 'No verification code found' };
+  if (record.verified) return { success: false, error: 'Already verified' };
+  if (new Date(record.expiresAt) < new Date()) return { success: false, error: 'Code expired' };
+  if (record.attempts >= 5) return { success: false, error: 'Too many attempts' };
+  await db.update(verificationCodes).set({ attempts: record.attempts + 1 } as any).where(eq(verificationCodes.id, record.id));
+  if (record.code !== inputCode) return { success: false, error: 'Invalid code' };
+  await db.update(verificationCodes).set({ verified: true } as any).where(eq(verificationCodes.id, record.id));
+  return { success: true };
+}
+
+// ─── Verification Status (persisted) ─────────────────────────────────────────
+export async function getVerificationStatus(userId: number) {
+  const db = await getDb(); if (!db) return { emailVerified: false, phoneVerified: false, email: null, phone: null };
+  const rows = await db.select().from(verificationCodes).where(
+    and(eq(verificationCodes.userId, userId), eq(verificationCodes.verified, true))
+  );
+  let emailVerified = false, phoneVerified = false, email: string | null = null, phone: string | null = null;
+  for (const r of rows) {
+    if (r.type === 'email') { emailVerified = true; email = r.target; }
+    if (r.type === 'phone') { phoneVerified = true; phone = r.target; }
+  }
+  return { emailVerified, phoneVerified, email, phone };
 }

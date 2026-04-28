@@ -45,7 +45,18 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [gstRate, setGstRate] = useState("18");
   const [placeOfSupply, setPlaceOfSupply] = useState("");
+  const [tcsEnabled, setTcsEnabled] = useState(false);
+  const [tcsSection, setTcsSection] = useState("");
   const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
+
+  // TCS Sections for sales
+  const TCS_SECTIONS = [
+    { code: "206C(1H)", description: "Sale of Goods (>50L)", rate: 0.1 },
+    { code: "206C(1)", description: "Scrap", rate: 1 },
+    { code: "206C(1)", description: "Timber/Forest Produce", rate: 2.5 },
+    { code: "206C(1F)", description: "Motor Vehicle (>10L)", rate: 1 },
+    { code: "206C(1G)", description: "Overseas Tour Package", rate: 5 },
+  ];
 
   const filtered = useMemo(() => invoices.filter((i: any) => {
     const matchSearch = i.customerName.toLowerCase().includes(search.toLowerCase()) || i.invoiceId.includes(search);
@@ -65,7 +76,13 @@ export default function Invoices() {
   const cgst = isInterState ? 0 : Math.round(gstAmount / 2 * 100) / 100;
   const sgst = isInterState ? 0 : Math.round(gstAmount / 2 * 100) / 100;
   const igst = isInterState ? gstAmount : 0;
-  const total = taxableValue + gstAmount;
+  const totalBeforeTcs = taxableValue + gstAmount;
+
+  // TCS Calculation
+  const selectedTcs = TCS_SECTIONS.find(s => s.code === tcsSection);
+  const tcsRate = selectedTcs ? selectedTcs.rate : 0;
+  const tcsAmount = tcsEnabled && tcsRate > 0 ? Math.round(totalBeforeTcs * tcsRate / 100 * 100) / 100 : 0;
+  const total = totalBeforeTcs + tcsAmount;
 
   const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
   const removeLine = (i: number) => { if (form.lines.length <= 1) return; setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) }); };
@@ -84,6 +101,8 @@ export default function Invoices() {
     setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
     setGstRate("18");
     setPlaceOfSupply("");
+    setTcsEnabled(false);
+    setTcsSection("");
     setOpen(true);
   };
 
@@ -111,6 +130,10 @@ export default function Invoices() {
       igst: String(igst),
       total: String(total),
       lines: form.lines.map(l => ({ ...l, rate: String(l.rate), amount: String(l.amount) })),
+      tcsSection: tcsEnabled ? tcsSection : undefined,
+      tcsRate: tcsEnabled ? String(tcsRate) : undefined,
+      tcsAmount: tcsEnabled ? String(tcsAmount) : undefined,
+      tcsTotal: tcsEnabled ? String(total) : undefined,
     });
   };
 
@@ -236,10 +259,46 @@ export default function Invoices() {
                     {isInterState && gstPercent > 0 && (
                       <TableRow className="bg-orange-50/50"><TableCell colSpan={4} className="text-right text-sm text-orange-700">IGST @ {gstPercent}%</TableCell><TableCell className="text-right tabular-nums text-orange-700">{fmt(igst)}</TableCell><TableCell /></TableRow>
                     )}
-                    <TableRow className="bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total</TableCell><TableCell className="text-right font-bold tabular-nums text-lg">{fmt(total)}</TableCell><TableCell /></TableRow>
+                    {tcsEnabled && tcsAmount > 0 && (
+                      <TableRow className="bg-purple-50/50"><TableCell colSpan={4} className="text-right text-sm text-purple-700">TCS ({tcsSection} @ {tcsRate}%)</TableCell><TableCell className="text-right tabular-nums text-purple-700">{fmt(tcsAmount)}</TableCell><TableCell /></TableRow>
+                    )}
+                    <TableRow className="bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total{tcsEnabled && tcsAmount > 0 ? ' (incl. TCS)' : ''}</TableCell><TableCell className="text-right font-bold tabular-nums text-lg">{fmt(total)}</TableCell><TableCell /></TableRow>
                   </TableBody>
                 </Table>
               </div>
+            </div>
+
+            {/* TCS Section */}
+            <div className="p-3 bg-purple-50/50 rounded-lg border border-purple-100">
+              <div className="flex items-center gap-2 mb-3">
+                <input type="checkbox" id="tcs-toggle" checked={tcsEnabled} onChange={e => setTcsEnabled(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
+                <label htmlFor="tcs-toggle" className="text-sm font-medium text-purple-800">Apply TCS (Tax Collected at Source)</label>
+              </div>
+              {tcsEnabled && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-purple-700">TCS Section</label>
+                    <Select value={tcsSection} onValueChange={setTcsSection}>
+                      <SelectTrigger><SelectValue placeholder="Select TCS section" /></SelectTrigger>
+                      <SelectContent>
+                        {TCS_SECTIONS.map((s, i) => (
+                          <SelectItem key={i} value={s.code}>
+                            {s.code} — {s.description} ({s.rate}%)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedTcs && totalBeforeTcs > 0 && (
+                    <div className="text-sm space-y-1 p-2 bg-purple-100/50 rounded">
+                      <div className="flex justify-between"><span>TCS Rate (Sec {selectedTcs.code})</span><span className="font-medium">{tcsRate}%</span></div>
+                      <div className="flex justify-between"><span>TCS Amount (on {fmt(totalBeforeTcs)})</span><span className="font-medium text-purple-800">{fmt(tcsAmount)}</span></div>
+                      <div className="flex justify-between font-bold border-t pt-1"><span>Invoice Total (incl. TCS)</span><span>{fmt(total)}</span></div>
+                      <div className="text-xs text-muted-foreground">TCS u/s 206C(1H): Applicable on sale of goods exceeding ₹50 lakhs aggregate per buyer per FY</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={createMut.isPending}>Create Invoice</Button></DialogFooter>

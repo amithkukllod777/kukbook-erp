@@ -201,6 +201,28 @@ vi.mock("./db", () => {
     getSubscription: vi.fn().mockResolvedValue({ id: 1, companyId: 1, plan: "professional", status: "trial", trialStartDate: new Date(), trialEndDate: new Date(Date.now() + 30*24*60*60*1000), autoRenew: true }),
     updateSubscription: vi.fn().mockResolvedValue(undefined),
     getTrialStatus: vi.fn().mockResolvedValue({ isTrialActive: true, daysLeft: 28, plan: "professional", status: "trial" }),
+
+    // TDS/TCS constants
+    TDS_SECTIONS: [
+      { section: '194C', description: 'Payment to Contractors', individual: 1, others: 2 },
+      { section: '194J', description: 'Professional/Technical Fees', individual: 10, others: 10 },
+    ],
+    TCS_SECTIONS: [
+      { section: '206C(1H)', description: 'Sale of goods > 50L', rate: 0.1 },
+    ],
+
+    // Invite functions
+    getCompanyInvites: vi.fn().mockResolvedValue([
+      { id: 1, companyId: 1, email: 'invited@test.com', role: 'staff', status: 'pending', token: 'abc123', createdAt: new Date(), expiresAt: new Date(Date.now() + 7*24*60*60*1000), invitedBy: 1 },
+    ]),
+    createInvite: vi.fn().mockResolvedValue({ id: 2, token: 'new-token-xyz', email: 'new@test.com', role: 'staff', status: 'pending' }),
+    acceptInvite: vi.fn().mockResolvedValue({ success: true, companyId: 1, companyName: 'Test Corp' }),
+    cancelInvite: vi.fn().mockResolvedValue(undefined),
+    getInviteByToken: vi.fn().mockResolvedValue({ id: 1, email: 'invited@test.com', role: 'staff', status: 'pending', expiresAt: new Date(Date.now() + 7*24*60*60*1000) }),
+
+    // Verification functions
+    createVerificationCode: vi.fn().mockResolvedValue({ code: '123456', expiresAt: new Date(Date.now() + 10*60*1000) }),
+    verifyCode: vi.fn().mockResolvedValue({ success: true, message: 'Verified successfully' }),
   };
 });
 
@@ -1097,5 +1119,192 @@ describe("Accounting — Auto-posting verification", () => {
       1,
       expect.objectContaining({ expenseId: "EXP-AUTO", amount: "500" })
     );
+  });
+});
+
+// ─── TDS on Vendor Payments Tests ──────────────────────────────────────────
+describe("TDS on Vendor Payments", () => {
+  it("returns TDS sections list", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const sections = await caller.bills.tdsSections();
+    expect(sections).toBeDefined();
+    expect(sections.length).toBeGreaterThan(0);
+    expect(sections[0]).toHaveProperty("section");
+    expect(sections[0]).toHaveProperty("description");
+  });
+
+  it("creates bill with TDS deduction fields", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    await caller.bills.create({
+      billId: "BILL-TDS",
+      vendorId: 1,
+      vendorName: "Contractor A",
+      date: "2026-04-28",
+      dueDate: "2026-05-28",
+      amount: "50000",
+      description: "Contract work",
+      tdsSection: "194C",
+      tdsRate: "2",
+      tdsAmount: "1000",
+      tdsNetPayable: "49000",
+    });
+    expect(db.createBill).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        billId: "BILL-TDS",
+        tdsSection: "194C",
+        tdsRate: "2",
+        tdsAmount: "1000",
+        tdsNetPayable: "49000",
+      })
+    );
+  });
+
+  it("creates bill without TDS when not applicable", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    await caller.bills.create({
+      billId: "BILL-NOTDS",
+      vendorId: 1,
+      vendorName: "Small Vendor",
+      date: "2026-04-28",
+      dueDate: "2026-05-28",
+      amount: "5000",
+      description: "Office supplies",
+    });
+    expect(db.createBill).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        billId: "BILL-NOTDS",
+        amount: "5000",
+      })
+    );
+  });
+});
+
+// ─── TCS on Sales Tests ────────────────────────────────────────────────────
+describe("TCS on Sales", () => {
+  it("returns TCS sections list", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const sections = await caller.invoices.tcsSections();
+    expect(sections).toBeDefined();
+    expect(sections.length).toBeGreaterThan(0);
+    expect(sections[0]).toHaveProperty("section");
+    expect(sections[0]).toHaveProperty("rate");
+  });
+
+  it("creates invoice with TCS collection fields", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    await caller.invoices.create({
+      invoiceId: "INV-TCS",
+      customerId: 1,
+      customerName: "Big Buyer Corp",
+      date: "2026-04-28",
+      dueDate: "2026-05-28",
+      status: "Draft",
+      subtotal: "6000000",
+      cgst: "540000",
+      sgst: "540000",
+      igst: "0",
+      total: "7080000",
+      lines: [{ description: "Bulk goods", qty: 1000, rate: "6000", amount: "6000000" }],
+      tcsSection: "206C(1H)",
+      tcsRate: "0.1",
+      tcsAmount: "7080",
+      tcsTotal: "7087080",
+    });
+    expect(db.createInvoice).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        invoiceId: "INV-TCS",
+        tcsSection: "206C(1H)",
+        tcsRate: "0.1",
+        tcsAmount: "7080",
+        tcsTotal: "7087080",
+      })
+    );
+  });
+});
+
+// ─── Company Invite System Tests ───────────────────────────────────────────
+describe("Company Invite System", () => {
+  it("lists pending invites for a company", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const invites = await caller.invites.list();
+    expect(invites).toBeDefined();
+    expect(invites.length).toBe(1);
+    expect(invites[0].email).toBe("invited@test.com");
+    expect(invites[0].status).toBe("pending");
+    expect(db.getCompanyInvites).toHaveBeenCalledWith(1);
+  });
+
+  it("creates a new invite with email and role", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.invites.create({ email: "new@test.com", role: "staff" });
+    expect(result.success).toBe(true);
+    expect(result.invite).toBeDefined();
+    expect(result.invite.token).toBe("new-token-xyz");
+    expect(db.createInvite).toHaveBeenCalledWith(1, "new@test.com", "staff", 1);
+  });
+
+  it("accepts an invite with valid token", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.invites.accept({ token: "abc123" });
+    expect(result.success).toBe(true);
+    expect(result.companyName).toBe("Test Corp");
+    expect(db.acceptInvite).toHaveBeenCalledWith("abc123", 1);
+  });
+
+  it("cancels a pending invite", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.invites.cancel({ id: 1 });
+    expect(result.success).toBe(true);
+    expect(db.cancelInvite).toHaveBeenCalledWith(1, 1);
+  });
+
+  it("gets invite details by token (public)", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const invite = await caller.invites.getByToken({ token: "abc123" });
+    expect(invite).toBeDefined();
+    expect(invite?.email).toBe("invited@test.com");
+    expect(invite?.role).toBe("staff");
+    expect(db.getInviteByToken).toHaveBeenCalledWith("abc123");
+  });
+});
+
+// ─── Email/Phone Verification Tests ────────────────────────────────────────
+describe("Email/Phone Verification", () => {
+  it("sends verification code for email", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.verification.sendCode({ type: "email", target: "user@test.com" });
+    expect(result.success).toBe(true);
+    expect(result.code).toBe("123456");
+    expect(result.expiresAt).toBeDefined();
+    expect(db.createVerificationCode).toHaveBeenCalledWith(1, "email", "user@test.com");
+  });
+
+  it("sends verification code for phone", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.verification.sendCode({ type: "phone", target: "+919876543210" });
+    expect(result.success).toBe(true);
+    expect(db.createVerificationCode).toHaveBeenCalledWith(1, "phone", "+919876543210");
+  });
+
+  it("verifies a valid code", async () => {
+    const db = await import("./db");
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.verification.verify({ target: "user@test.com", code: "123456" });
+    expect(result.success).toBe(true);
+    expect(result.message).toBe("Verified successfully");
+    expect(db.verifyCode).toHaveBeenCalledWith(1, "user@test.com", "123456");
   });
 });

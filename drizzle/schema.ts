@@ -98,11 +98,14 @@ export const invoices = mysqlTable("invoices", {
   sgst: decimal("inv_sgst", { precision: 15, scale: 2 }).default("0").notNull(),
   igst: decimal("inv_igst", { precision: 15, scale: 2 }).default("0").notNull(),
   total: decimal("total", { precision: 15, scale: 2 }).default("0").notNull(),
+  tcsSection: varchar("tcs_section", { length: 20 }),
+  tcsRate: decimal("tcs_rate", { precision: 5, scale: 2 }).default("0").notNull(),
+  tcsAmount: decimal("tcs_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  tcsTotal: decimal("tcs_total", { precision: 15, scale: 2 }).default("0").notNull(),
   journalEntryId: int("inv_journalEntryId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Invoice = typeof invoices.$inferSelect;
 
 export const invoiceLines = mysqlTable("invoice_lines", {
@@ -152,12 +155,15 @@ export const bills = mysqlTable("bills", {
   igst: decimal("bill_igst", { precision: 15, scale: 2 }).default("0").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).default("0").notNull(),
   status: mysqlEnum("bill_status", ["Pending", "Paid"]).default("Pending").notNull(),
-  description: text("description"),
+   description: text("description"),
+  tdsSection: varchar("tds_section", { length: 20 }),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }).default("0").notNull(),
+  tdsAmount: decimal("tds_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  tdsNetPayable: decimal("tds_net_payable", { precision: 15, scale: 2 }).default("0").notNull(),
   journalEntryId: int("bill_journalEntryId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Bill = typeof bills.$inferSelect;
 
 // ─── Inventory ──────────────────────────────────────────────────────────────
@@ -566,3 +572,31 @@ export const subscriptions = mysqlTable("subscriptions", {
 });
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+// ─── Company Invites ─────────────────────────────────────────────────────────
+export const companyInvites = mysqlTable("company_invites", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("ci_companyId").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  role: varchar("ci_role", { length: 20 }).default("staff").notNull(),
+  token: varchar("token", { length: 100 }).notNull().unique(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  invitedBy: int("invitedBy").notNull(),
+  createdAt: timestamp("ci_createdAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+});
+export type CompanyInvite = typeof companyInvites.$inferSelect;
+
+// ─── Verification Codes ──────────────────────────────────────────────────────
+export const verificationCodes = mysqlTable("verification_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("vc_userId").notNull(),
+  type: varchar("vc_type", { length: 10 }).notNull(),
+  target: varchar("vc_target", { length: 320 }).notNull(),
+  code: varchar("code", { length: 10 }).notNull(),
+  verified: mysqlBoolean("verified").default(false).notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  createdAt: timestamp("vc_createdAt").defaultNow().notNull(),
+  expiresAt: timestamp("vc_expiresAt").notNull(),
+});
+export type VerificationCode = typeof verificationCodes.$inferSelect;
