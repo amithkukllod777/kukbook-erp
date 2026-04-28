@@ -254,3 +254,41 @@
 
 ## Bugs
 - [x] BUG FIX: New user signup permission denied — fixed: (1) Onboarding sets company ID in localStorage after create, (2) addMember/removeMember changed from adminProcedure to companyProcedure with owner check, (3) subscription.update changed to protectedProcedure, (4) admin-only sidebar items hidden for non-admin users via role-based filtering
+
+## Pending Features — High Priority (from Feature Audit)
+- [ ] Partial Payments / Due Tracking — Invoice pe partial amount receive karna, remaining due track karna
+- [ ] Recurring Invoices — Monthly auto-generate invoices for regular clients
+- [ ] Activity / Audit Log — Kisne kya change kiya, kab kiya — full tracking (DB table + UI page)
+- [ ] Bank Reconciliation — Bank statement match with recorded transactions
+- [ ] Credit Limit on Customers — Customer pe credit limit set karna, exceed hone pe warning
+
+## Pending Features — Medium Priority (from Feature Audit)
+- [ ] Proforma Invoice — Estimate se alag, formal proforma invoice type with separate numbering
+- [ ] Batch / Expiry Tracking — Inventory items pe batch number + expiry date (pharma/FMCG use case)
+- [ ] Approval Workflows — PO approval, expense approval before processing (maker-checker)
+- [ ] Top Customers / Products Ranking — Dashboard pe top 10 customers by revenue, top products by sales
+- [ ] Invoice Template Applied to PDF — Selected theme actually used when generating PDF export
+- [ ] E-Way Bill NIC API Integration — Real e-way bill generation via government NIC API backend
+
+## Pending Features — Low Priority (from Feature Audit)
+- [ ] Real Email/SMS/WhatsApp Sending — Twilio/MSG91/WhatsApp Business API integration for actual delivery
+- [ ] Razorpay/Paytm Payment Gateway — Customer-facing payment collection (not just Stripe subscription)
+- [ ] Multi-Currency Support — USD, EUR, GBP support with exchange rates and conversion
+- [ ] Bank Feeds Integration — Auto-import bank transactions (Plaid/Yodlee style)
+- [ ] E-Commerce Integration — Amazon/Shopify order sync with inventory
+- [ ] PWA / Offline Mode — Progressive Web App for offline access and mobile install
+- [ ] Real-Time Updates — WebSocket/SSE for live data sync across tabs/users
+- [ ] Audit Trail Report — Downloadable audit log report (PDF/Excel export of activity log)
+- [ ] Multi-Language Support — Hindi, Gujarati, Marathi, Tamil etc. UI translations
+
+## Partial Features — Need Completion (from Feature Audit)
+- [ ] Payment Reminders — Real SMS/WhatsApp/email sending (currently UI-only, no actual delivery)
+- [ ] Invoice Due Alerts — Auto-notification when invoice becomes overdue (currently just status badge)
+- [ ] Invoice Themes — Apply selected template to actual PDF export (currently preview-only, not saved to DB)
+- [ ] E-Way Bill — NIC API backend integration (currently frontend-only form, no API call or DB save)
+- [ ] Top Customers/Products — Dashboard ranking widget (currently shows recent transactions only)
+- [ ] Real-time Updates — WebSocket/SSE live sync (currently data refreshes only on page navigation)
+- [ ] Razorpay/Paytm — Customer payment collection integration (currently only Stripe for subscriptions)
+- [ ] WhatsApp/Email — Real API integration for message delivery (currently UI compose form only)
+- [ ] Multi-Currency — Support beyond INR (currently INR-only throughout)
+- [ ] Bank Reconciliation — Full implementation (currently not started at all)
