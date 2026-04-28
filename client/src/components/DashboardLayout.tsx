@@ -27,10 +27,10 @@ import {
   LayoutDashboard, LogOut, PanelLeft, BookOpen, FileText,
   Users, Receipt, Building2, ShoppingCart, Package, ClipboardList,
   UserCheck, DollarSign, Warehouse, Link2, Truck, Settings,
-  Shield, BarChart3, ChevronDown, RotateCcw, FileCheck,
+  Shield,  BarChart3, ChevronDown, RotateCcw, FileCheck,
   ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp,
-  FileSpreadsheet, IndianRupee, UsersRound, ScrollText, ArrowLeftRight
-} from "lucide-react";
+  FileSpreadsheet, IndianRupee, UsersRound, ScrollText, ArrowLeftRight,
+  FileBarChart, Palette, Barcode, Bell, MessageSquare, Building, Crown} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -64,6 +64,7 @@ const menuGroups: MenuGroup[] = [
       { icon: BarChart3, label: "Financial Reports", path: "/reports" },
       { icon: FileSpreadsheet, label: "Advanced Reports", path: "/advanced-reports" },
       { icon: IndianRupee, label: "GST Reports", path: "/gst-reports" },
+      { icon: FileBarChart, label: "E-Way Bills", path: "/eway-bill" },
     ],
   },
   {
@@ -90,6 +91,7 @@ const menuGroups: MenuGroup[] = [
     label: "Inventory & Warehouse",
     items: [
       { icon: Package, label: "Inventory", path: "/inventory" },
+      { icon: Barcode, label: "Barcode Generator", path: "/barcode" },
       { icon: Warehouse, label: "Warehouses", path: "/warehouses" },
       { icon: Link2, label: "Supply Chain", path: "/supply-chain" },
     ],
@@ -107,6 +109,13 @@ const menuGroups: MenuGroup[] = [
       { icon: Truck, label: "Delivery Staff", path: "/delivery-staff" },
       { icon: Truck, label: "Deliveries", path: "/deliveries" },
       { icon: ScrollText, label: "Delivery Challans", path: "/delivery-challans" },
+    ],
+  },
+  {
+    label: "Communication",
+    items: [
+      { icon: MessageSquare, label: "Messaging", path: "/messaging" },
+      { icon: Bell, label: "Payment Reminders", path: "/payment-reminders" },
     ],
   },
   {
@@ -128,6 +137,9 @@ const menuGroups: MenuGroup[] = [
       { icon: Shield, label: "User Management", path: "/admin/users" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
       { icon: ArrowLeftRight, label: "Import / Export", path: "/import-export" },
+      { icon: Palette, label: "Invoice Themes", path: "/invoice-themes" },
+      { icon: Building, label: "Multi-Firm", path: "/multi-firm" },
+      { icon: Crown, label: "Subscription", path: "/subscription" },
     ],
   },
 ];

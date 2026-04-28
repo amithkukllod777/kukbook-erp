@@ -43,6 +43,13 @@ const GSTReports = lazy(() => import("./pages/GSTReports"));
 const PartyGroups = lazy(() => import("./pages/PartyGroups"));
 const AdvancedReports = lazy(() => import("./pages/AdvancedReports"));
 const ImportExport = lazy(() => import("./pages/ImportExport"));
+const EWayBill = lazy(() => import("./pages/EWayBill"));
+const InvoiceThemes = lazy(() => import("./pages/InvoiceThemes"));
+const Barcode = lazy(() => import("./pages/Barcode"));
+const PaymentReminders = lazy(() => import("./pages/PaymentReminders"));
+const Messaging = lazy(() => import("./pages/Messaging"));
+const MultiFirm = lazy(() => import("./pages/MultiFirm"));
+const Subscription = lazy(() => import("./pages/Subscription"));
 
 function PageLoader() {
   return (
@@ -86,6 +93,13 @@ function AuthenticatedRouter() {
           <Route path="/cash-bank" component={CashBank} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/other-income" component={OtherIncome} />
+          <Route path="/eway-bill" component={EWayBill} />
+          <Route path="/invoice-themes" component={InvoiceThemes} />
+          <Route path="/barcode" component={Barcode} />
+          <Route path="/payment-reminders" component={PaymentReminders} />
+          <Route path="/messaging" component={Messaging} />
+          <Route path="/multi-firm" component={MultiFirm} />
+          <Route path="/subscription" component={Subscription} />
           <Route path="/admin/users" component={AdminUsers} />
           <Route path="/admin/settings" component={AdminSettings} />
           <Route path="/404" component={NotFound} />

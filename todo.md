@@ -147,27 +147,28 @@
 - [x] Final status check — zero TypeScript errors
 
 ## Future Enhancements (Not Yet Implemented)
-- [ ] Multi-Tenant Architecture (companyId isolation, subdomain routing)
-- [ ] Subscription plans with payment gateway (Stripe/Razorpay)
-- [ ] 30-day free trial tracking
+- [x] Subscription management UI page (plans comparison + billing info)
+- [ ] Multi-Tenant Architecture (companyId isolation, subdomain routing — future)
+- [ ] Subscription plans with payment gateway (Stripe/Razorpay — future)
+- [ ] 30-day free trial tracking (future)
 - [x] GST GSTR-1 report page
 - [x] GST GSTR-3B report
 - [x] HSN code support in inventory
-- [ ] E-Way Bill workflow
+- [x] E-Way Bill management UI page (frontend form + status tracking)
 - [x] Delivery Challans
 - [x] Day Book report
 - [x] Cashflow report
 - [x] AR Aging report
 - [x] Stock Summary report
 - [x] Party Statement report
-- [ ] Barcode generation and scanning
-- [ ] Invoice themes (multiple templates)
+- [x] Barcode generation UI page (SVG barcode rendering for inventory items)
+- [x] Invoice themes UI page (6 template previews with selection)
 - [x] Export to CSV for all modules
 - [x] Template download for import
 - [x] CSV import with parsing and persistence (Customers, Vendors, Inventory)
-- [ ] WhatsApp/SMS integration
-- [ ] Payment reminders (auto-send)
-- [ ] Multi-firm support
+- [x] Messaging UI page (WhatsApp/SMS/Email compose + templates + history)
+- [x] Payment reminders UI page (overdue tracking + send reminders)
+- [x] Multi-firm management UI page (add/switch firms)
 - [x] Transaction-level discount on invoices
 - [x] Item-wise discount support
 - [x] Party grouping
