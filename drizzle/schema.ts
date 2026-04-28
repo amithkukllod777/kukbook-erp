@@ -207,6 +207,10 @@ export const inventory = mysqlTable("inventory", {
   warehouseId: int("warehouseId"),
   hsnCode: varchar("hsnCode", { length: 20 }),
   gstRate: decimal("gstRate", { precision: 5, scale: 2 }).default("18.00"),
+  mrp: decimal("mrp", { precision: 15, scale: 2 }),
+  sellingPrice: decimal("sellingPrice", { precision: 15, scale: 2 }),
+  purchasePrice: decimal("purchasePrice", { precision: 15, scale: 2 }),
+  upcBarcode: varchar("upcBarcode", { length: 50 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

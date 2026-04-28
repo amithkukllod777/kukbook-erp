@@ -186,10 +186,10 @@ export const appRouter = router({
   inventory: router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllInventory(ctx.companyId)),
     create: companyProcedure.input(z.object({
-      sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional()
+      sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional(), mrp: z.string().optional(), sellingPrice: z.string().optional(), purchasePrice: z.string().optional(), upcBarcode: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createInventoryItem(ctx.companyId, input); return { success: true }; }),
     update: companyProcedure.input(z.object({
-      id: z.number(), sku: z.string().optional(), name: z.string().optional(), category: z.string().optional(), qty: z.number().optional(), cost: z.string().optional(), reorder: z.number().optional(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional()
+      id: z.number(), sku: z.string().optional(), name: z.string().optional(), category: z.string().optional(), qty: z.number().optional(), cost: z.string().optional(), reorder: z.number().optional(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional(), mrp: z.string().optional(), sellingPrice: z.string().optional(), purchasePrice: z.string().optional(), upcBarcode: z.string().optional()
     })).mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
       await db.updateInventoryItem(id, ctx.companyId, data);

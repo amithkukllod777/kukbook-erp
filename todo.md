@@ -384,3 +384,13 @@
 - [x] Ship To Address section with "Same as Bill To" checkbox in Customer form
 - [x] Same GST + Bill To / Ship To enhancement in Vendor form
 - [x] DB schema: Add billing/shipping address columns to customers and vendors tables
+
+## Inventory Enhancement & Bug Fix
+- [x] BUG: Inventory item save not working (Create button not saving item)
+- [x] Add MRP field to inventory item form
+- [x] Add Selling Price field to inventory item form
+- [x] Add Purchase Price field to inventory item form
+- [x] Add UPC / Barcode field to inventory item form
+- [x] Rename "Quantity" label to "Opening Stock"
+- [x] Rename "Cost" label to "Purchase Price" (or keep separate)
+- [x] DB migration: Add mrp, sellingPrice, purchasePrice, upcBarcode columns to inventory table

@@ -874,12 +874,12 @@ export async function getAllInventory(companyId: number) {
   return db.select().from(inventory).where(eq(inventory.companyId, companyId)).orderBy(asc(inventory.name));
 }
 
-export async function createInventoryItem(companyId: number, data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number; hsnCode?: string; gstRate?: string }) {
+export async function createInventoryItem(companyId: number, data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number; hsnCode?: string; gstRate?: string; mrp?: string; sellingPrice?: string; purchasePrice?: string; upcBarcode?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(inventory).values({ ...data, companyId } as any);
 }
 
-export async function updateInventoryItem(id: number, companyId: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number; hsnCode: string; gstRate: string }>) {
+export async function updateInventoryItem(id: number, companyId: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number; hsnCode: string; gstRate: string; mrp: string; sellingPrice: string; purchasePrice: string; upcBarcode: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(inventory).set(data as any).where(and(eq(inventory.id, id), eq(inventory.companyId, companyId)));
 }
