@@ -27,7 +27,8 @@ import {
   LayoutDashboard, LogOut, PanelLeft, BookOpen, FileText,
   Users, Receipt, Building2, ShoppingCart, Package, ClipboardList,
   UserCheck, DollarSign, Warehouse, Link2, Truck, Settings,
-  Shield, BarChart3, ChevronDown
+  Shield, BarChart3, ChevronDown, RotateCcw, FileCheck,
+  ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -58,6 +59,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: BookOpen, label: "Chart of Accounts", path: "/accounts" },
       { icon: FileText, label: "Journal Entries", path: "/journal" },
+      { icon: Wallet, label: "Cash & Bank", path: "/cash-bank" },
       { icon: BarChart3, label: "Financial Reports", path: "/reports" },
     ],
   },
@@ -66,6 +68,9 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Users, label: "Customers", path: "/customers" },
       { icon: Receipt, label: "Invoices", path: "/invoices" },
+      { icon: FileCheck, label: "Estimates", path: "/estimates" },
+      { icon: RotateCcw, label: "Sale Returns", path: "/sale-returns" },
+      { icon: ArrowDownLeft, label: "Payments In", path: "/payments-in" },
     ],
   },
   {
@@ -74,6 +79,8 @@ const menuGroups: MenuGroup[] = [
       { icon: Building2, label: "Vendors", path: "/vendors" },
       { icon: ShoppingCart, label: "Bills", path: "/bills" },
       { icon: ClipboardList, label: "Purchase Orders", path: "/purchase-orders" },
+      { icon: RotateCcw, label: "Purchase Returns", path: "/purchase-returns" },
+      { icon: ArrowUpRight, label: "Payments Out", path: "/payments-out" },
     ],
   },
   {
@@ -96,6 +103,13 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Truck, label: "Delivery Staff", path: "/delivery-staff" },
       { icon: Truck, label: "Deliveries", path: "/deliveries" },
+    ],
+  },
+  {
+    label: "Income & Expenses",
+    items: [
+      { icon: CreditCard, label: "Expenses", path: "/expenses" },
+      { icon: TrendingUp, label: "Other Income", path: "/other-income" },
     ],
   },
   {

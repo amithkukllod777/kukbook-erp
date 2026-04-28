@@ -19,9 +19,7 @@ export const appRouter = router({
 
   // ─── Dashboard ───────────────────────────────────────────────────────
   dashboard: router({
-    getData: protectedProcedure.query(async () => {
-      return db.getDashboardData();
-    }),
+    getData: protectedProcedure.query(async () => db.getDashboardData()),
   }),
 
   // ─── Accounts (COA) ─────────────────────────────────────────────────
@@ -73,25 +71,51 @@ export const appRouter = router({
     })).mutation(async ({ input }) => { await db.createInvoice(input); return { success: true }; }),
     updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => {
       await db.updateInvoiceStatus(input.id, input.status);
-      // Send notification when invoice is marked as Sent
       if (input.status === 'Sent') {
         const invoices = await db.getAllInvoices();
         const inv = invoices.find((i: any) => i.id === input.id);
-        if (inv) {
-          notifyOwner({ title: `Invoice ${inv.invoiceId} Sent`, content: `Invoice ${inv.invoiceId} for ${inv.customerName} (${inv.total}) has been marked as Sent.` }).catch(() => {});
-        }
+        if (inv) notifyOwner({ title: `Invoice ${inv.invoiceId} Sent`, content: `Invoice ${inv.invoiceId} for ${inv.customerName} (${inv.total}) has been marked as Sent.` }).catch(() => {});
       }
-      // Alert owner when invoice becomes overdue
       if (input.status === 'Overdue') {
         const invoices = await db.getAllInvoices();
         const inv = invoices.find((i: any) => i.id === input.id);
-        if (inv) {
-          notifyOwner({ title: `Invoice ${inv.invoiceId} OVERDUE`, content: `Invoice ${inv.invoiceId} for ${inv.customerName} (${inv.total}) is now overdue. Due date: ${inv.dueDate}` }).catch(() => {});
-        }
+        if (inv) notifyOwner({ title: `Invoice ${inv.invoiceId} OVERDUE`, content: `Invoice ${inv.invoiceId} for ${inv.customerName} (${inv.total}) is now overdue. Due date: ${inv.dueDate}` }).catch(() => {});
       }
       return { success: true };
     }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteInvoice(input.id); return { success: true }; }),
+  }),
+
+  // ─── Sale Returns ───────────────────────────────────────────────────
+  saleReturns: router({
+    list: protectedProcedure.query(async () => db.getAllSaleReturns()),
+    nextId: protectedProcedure.query(async () => db.getNextId('sale_returns', 'CR')),
+    create: protectedProcedure.input(z.object({
+      returnId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), invoiceRef: z.string().optional(), amount: z.string(), reason: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createSaleReturn(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteSaleReturn(input.id); return { success: true }; }),
+  }),
+
+  // ─── Estimates ──────────────────────────────────────────────────────
+  estimates: router({
+    list: protectedProcedure.query(async () => db.getAllEstimates()),
+    nextId: protectedProcedure.query(async () => db.getNextId('estimates', 'EST')),
+    create: protectedProcedure.input(z.object({
+      estimateId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), validUntil: z.string().optional(), total: z.string(), notes: z.string().optional(),
+      lines: z.array(z.object({ description: z.string(), qty: z.number(), rate: z.string(), amount: z.string() }))
+    })).mutation(async ({ input }) => { await db.createEstimate(input); return { success: true }; }),
+    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateEstimateStatus(input.id, input.status); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteEstimate(input.id); return { success: true }; }),
+  }),
+
+  // ─── Payments In ────────────────────────────────────────────────────
+  paymentsIn: router({
+    list: protectedProcedure.query(async () => db.getAllPaymentsIn()),
+    nextId: protectedProcedure.query(async () => db.getNextId('payments_in', 'REC')),
+    create: protectedProcedure.input(z.object({
+      paymentId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), amount: z.string(), mode: z.string(), invoiceRef: z.string().optional(), notes: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createPaymentIn(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePaymentIn(input.id); return { success: true }; }),
   }),
 
   // ─── Vendors ─────────────────────────────────────────────────────────
@@ -117,6 +141,26 @@ export const appRouter = router({
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteBill(input.id); return { success: true }; }),
   }),
 
+  // ─── Purchase Returns ───────────────────────────────────────────────
+  purchaseReturns: router({
+    list: protectedProcedure.query(async () => db.getAllPurchaseReturns()),
+    nextId: protectedProcedure.query(async () => db.getNextId('purchase_returns', 'DN')),
+    create: protectedProcedure.input(z.object({
+      returnId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), billRef: z.string().optional(), amount: z.string(), reason: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createPurchaseReturn(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePurchaseReturn(input.id); return { success: true }; }),
+  }),
+
+  // ─── Payments Out ───────────────────────────────────────────────────
+  paymentsOut: router({
+    list: protectedProcedure.query(async () => db.getAllPaymentsOut()),
+    nextId: protectedProcedure.query(async () => db.getNextId('payments_out', 'PAY')),
+    create: protectedProcedure.input(z.object({
+      paymentId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), amount: z.string(), mode: z.string(), billRef: z.string().optional(), notes: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createPaymentOut(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePaymentOut(input.id); return { success: true }; }),
+  }),
+
   // ─── Inventory ───────────────────────────────────────────────────────
   inventory: router({
     list: protectedProcedure.query(async () => db.getAllInventory()),
@@ -128,7 +172,6 @@ export const appRouter = router({
     })).mutation(async ({ input }) => {
       const { id, ...data } = input;
       await db.updateInventoryItem(id, data);
-      // Low stock alert
       if (data.qty !== undefined) {
         const items = await db.getAllInventory();
         const item = items.find((i: any) => i.id === id);
@@ -219,6 +262,38 @@ export const appRouter = router({
     })).mutation(async ({ input }) => { await db.createDelivery(input); return { success: true }; }),
     updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateDeliveryStatus(input.id, input.status); return { success: true }; }),
     assign: protectedProcedure.input(z.object({ id: z.number(), staffId: z.number(), staffName: z.string() })).mutation(async ({ input }) => { await db.assignDelivery(input.id, input.staffId, input.staffName); return { success: true }; }),
+  }),
+
+  // ─── Cash & Bank ────────────────────────────────────────────────────
+  cashBank: router({
+    list: protectedProcedure.query(async () => db.getAllCashBankAccounts()),
+    create: protectedProcedure.input(z.object({
+      name: z.string(), type: z.string(), bankName: z.string().optional(), accountNumber: z.string().optional(), balance: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createCashBankAccount(input); return { success: true }; }),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), type: z.string().optional(), bankName: z.string().optional(), accountNumber: z.string().optional(), balance: z.string().optional()
+    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCashBankAccount(id, data); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteCashBankAccount(input.id); return { success: true }; }),
+  }),
+
+  // ─── Expenses ───────────────────────────────────────────────────────
+  expenses: router({
+    list: protectedProcedure.query(async () => db.getAllExpenses()),
+    nextId: protectedProcedure.query(async () => db.getNextId('expenses', 'EXP')),
+    create: protectedProcedure.input(z.object({
+      expenseId: z.string(), date: z.string(), category: z.string(), amount: z.string(), paymentMode: z.string(), description: z.string().optional(), gstIncluded: z.boolean().optional(), gstAmount: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createExpense(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteExpense(input.id); return { success: true }; }),
+  }),
+
+  // ─── Other Income ───────────────────────────────────────────────────
+  otherIncome: router({
+    list: protectedProcedure.query(async () => db.getAllOtherIncome()),
+    nextId: protectedProcedure.query(async () => db.getNextId('other_income', 'INC')),
+    create: protectedProcedure.input(z.object({
+      incomeId: z.string(), date: z.string(), category: z.string(), amount: z.string(), paymentMode: z.string(), description: z.string().optional()
+    })).mutation(async ({ input }) => { await db.createOtherIncome(input); return { success: true }; }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteOtherIncome(input.id); return { success: true }; }),
   }),
 
   // ─── Settings ────────────────────────────────────────────────────────

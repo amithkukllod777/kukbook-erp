@@ -112,3 +112,52 @@
 - [x] Send invoice email when status changed to Sent
 - [x] Overdue invoice alerts to owner
 - [x] Low stock alerts to owner
+
+## SaaS Transformation — Landing Page
+- [x] Professional landing page (Hero section with CTA)
+- [x] Features showcase section
+- [x] Pricing section with plan comparison
+- [x] How It Works section
+- [x] Testimonials section
+- [x] FAQ section
+- [x] Footer with links
+- [x] Signup/Login flow on landing page
+
+## New Vyapar Features — Transactions
+- [x] Sale Returns / Credit Notes
+- [x] Purchase Returns / Debit Notes
+- [x] Estimates / Quotations with line items and status tracking
+- [x] Payment-In receipts with payment modes
+- [x] Payment-Out receipts with payment modes
+
+## New Vyapar Features — Cash & Bank
+- [x] Cash & Bank accounts module (Cash, Bank, UPI, Wallet)
+- [x] Account balance tracking
+- [x] Multiple payment modes support
+
+## New Vyapar Features — Income & Expenses
+- [x] Expenses with categories and GST support
+- [x] Other Income tracking with categories
+
+## Sidebar Navigation
+- [x] Updated sidebar with all new modules (9 groups, 25+ items)
+
+## Tests & Polish
+- [x] Vitest tests for all modules (45 tests passing)
+- [x] Final status check — zero TypeScript errors
+
+## Future Enhancements (Not Yet Implemented)
+- [ ] Multi-Tenant Architecture (companyId isolation, subdomain routing)
+- [ ] Subscription plans with payment gateway (Stripe/Razorpay)
+- [ ] 30-day free trial tracking
+- [ ] GST compliance (GSTR-1/3B reports, HSN codes, E-Way Bill)
+- [ ] Delivery Challans
+- [ ] Day Book, Cashflow, Party Statement reports
+- [ ] Barcode generation and scanning
+- [ ] Invoice themes (multiple templates)
+- [ ] Import/Export from Excel
+- [ ] WhatsApp/SMS integration
+- [ ] Payment reminders (auto-send)
+- [ ] Multi-firm support
+- [ ] Discount management (item-wise, transaction-wise)
+- [ ] Party grouping

@@ -4,7 +4,9 @@ import {
   InsertUser, users, accounts, journalEntries, journalLines,
   customers, invoices, invoiceLines, vendors, bills,
   inventory, purchaseOrders, employees, payrollRuns,
-  warehouses, supplyChainOrders, deliveryStaff, deliveries, settings
+  warehouses, supplyChainOrders, deliveryStaff, deliveries, settings,
+  saleReturns, purchaseReturns, estimates, estimateLines,
+  paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -416,5 +418,138 @@ export async function getNextId(table: string, prefix: string) {
   else if (table === 'supply_chain_orders') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(supplyChainOrders); count = r[0]?.c || 0; }
   else if (table === 'delivery_staff') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(deliveryStaff); count = r[0]?.c || 0; }
   else if (table === 'deliveries') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(deliveries); count = r[0]?.c || 0; }
+  else if (table === 'sale_returns') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(saleReturns); count = r[0]?.c || 0; }
+  else if (table === 'purchase_returns') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(purchaseReturns); count = r[0]?.c || 0; }
+  else if (table === 'estimates') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(estimates); count = r[0]?.c || 0; }
+  else if (table === 'payments_in') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(paymentsIn); count = r[0]?.c || 0; }
+  else if (table === 'payments_out') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(paymentsOut); count = r[0]?.c || 0; }
+  else if (table === 'expenses') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(expenses); count = r[0]?.c || 0; }
+  else if (table === 'other_income') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(otherIncome); count = r[0]?.c || 0; }
   return `${prefix}-${String(count + 1).padStart(3, '0')}`;
+}
+
+// ─── Sale Returns ───────────────────────────────────────────────────────────
+export async function getAllSaleReturns() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(saleReturns).orderBy(desc(saleReturns.createdAt));
+}
+export async function createSaleReturn(data: { returnId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; amount: string; reason?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(saleReturns).values(data as any);
+}
+export async function deleteSaleReturn(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(saleReturns).where(eq(saleReturns.id, id));
+}
+
+// ─── Purchase Returns ───────────────────────────────────────────────────────
+export async function getAllPurchaseReturns() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(purchaseReturns).orderBy(desc(purchaseReturns.createdAt));
+}
+export async function createPurchaseReturn(data: { returnId: string; vendorId: number; vendorName: string; date: string; billRef?: string; amount: string; reason?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(purchaseReturns).values(data as any);
+}
+export async function deletePurchaseReturn(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(purchaseReturns).where(eq(purchaseReturns.id, id));
+}
+
+// ─── Estimates ──────────────────────────────────────────────────────────────
+export async function getAllEstimates() {
+  const db = await getDb(); if (!db) return [];
+  const ests = await db.select().from(estimates).orderBy(desc(estimates.date));
+  const lines = await db.select().from(estimateLines);
+  return ests.map(e => ({ ...e, lines: lines.filter(l => l.estimateId === e.id) }));
+}
+export async function createEstimate(data: { estimateId: string; customerId: number; customerName: string; date: string; validUntil?: string; total: string; notes?: string; lines: { description: string; qty: number; rate: string; amount: string }[] }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(estimates).values({ estimateId: data.estimateId, customerId: data.customerId, customerName: data.customerName, date: data.date, validUntil: data.validUntil, total: data.total, notes: data.notes } as any).$returningId();
+  if (data.lines.length > 0) {
+    await db.insert(estimateLines).values(data.lines.map(l => ({ estimateId: result.id, description: l.description, qty: l.qty, rate: l.rate, amount: l.amount })));
+  }
+}
+export async function updateEstimateStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(estimates).set({ status: status as any }).where(eq(estimates.id, id));
+}
+export async function deleteEstimate(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(estimateLines).where(eq(estimateLines.estimateId, id));
+  await db.delete(estimates).where(eq(estimates.id, id));
+}
+
+// ─── Payments In ────────────────────────────────────────────────────────────
+export async function getAllPaymentsIn() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(paymentsIn).orderBy(desc(paymentsIn.date));
+}
+export async function createPaymentIn(data: { paymentId: string; customerId: number; customerName: string; date: string; amount: string; mode: string; invoiceRef?: string; notes?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(paymentsIn).values(data as any);
+}
+export async function deletePaymentIn(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(paymentsIn).where(eq(paymentsIn.id, id));
+}
+
+// ─── Payments Out ───────────────────────────────────────────────────────────
+export async function getAllPaymentsOut() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(paymentsOut).orderBy(desc(paymentsOut.date));
+}
+export async function createPaymentOut(data: { paymentId: string; vendorId: number; vendorName: string; date: string; amount: string; mode: string; billRef?: string; notes?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(paymentsOut).values(data as any);
+}
+export async function deletePaymentOut(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(paymentsOut).where(eq(paymentsOut.id, id));
+}
+
+// ─── Cash & Bank ────────────────────────────────────────────────────────────
+export async function getAllCashBankAccounts() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(cashBankAccounts).orderBy(asc(cashBankAccounts.name));
+}
+export async function createCashBankAccount(data: { name: string; type: string; bankName?: string; accountNumber?: string; balance?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(cashBankAccounts).values(data as any);
+}
+export async function updateCashBankAccount(id: number, data: Partial<{ name: string; type: string; bankName: string; accountNumber: string; balance: string }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(cashBankAccounts).set(data as any).where(eq(cashBankAccounts.id, id));
+}
+export async function deleteCashBankAccount(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(cashBankAccounts).where(eq(cashBankAccounts.id, id));
+}
+
+// ─── Expenses ───────────────────────────────────────────────────────────────
+export async function getAllExpenses() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(expenses).orderBy(desc(expenses.date));
+}
+export async function createExpense(data: { expenseId: string; date: string; category: string; amount: string; paymentMode: string; description?: string; gstIncluded?: boolean; gstAmount?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(expenses).values(data as any);
+}
+export async function deleteExpense(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(expenses).where(eq(expenses.id, id));
+}
+
+// ─── Other Income ───────────────────────────────────────────────────────────
+export async function getAllOtherIncome() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(otherIncome).orderBy(desc(otherIncome.date));
+}
+export async function createOtherIncome(data: { incomeId: string; date: string; category: string; amount: string; paymentMode: string; description?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(otherIncome).values(data as any);
+}
+export async function deleteOtherIncome(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(otherIncome).where(eq(otherIncome.id, id));
 }

@@ -267,3 +267,137 @@ export const settings = mysqlTable("settings", {
 });
 
 export type Setting = typeof settings.$inferSelect;
+
+// ─── Sale Returns (Credit Notes) ───────────────────────────────────────────
+export const saleReturns = mysqlTable("sale_returns", {
+  id: int("id").autoincrement().primaryKey(),
+  returnId: varchar("returnId", { length: 20 }).notNull().unique(),
+  customerId: int("customerId").notNull(),
+  customerName: varchar("sr_customerName", { length: 200 }).notNull(),
+  date: varchar("sr_date", { length: 10 }).notNull(),
+  invoiceRef: varchar("invoiceRef", { length: 20 }),
+  amount: decimal("sr_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("sr_createdAt").defaultNow().notNull(),
+});
+
+export type SaleReturn = typeof saleReturns.$inferSelect;
+
+// ─── Purchase Returns (Debit Notes) ────────────────────────────────────────
+export const purchaseReturns = mysqlTable("purchase_returns", {
+  id: int("id").autoincrement().primaryKey(),
+  returnId: varchar("pr_returnId", { length: 20 }).notNull().unique(),
+  vendorId: int("pr_vendorId").notNull(),
+  vendorName: varchar("pr_vendorName", { length: 200 }).notNull(),
+  date: varchar("pr_date", { length: 10 }).notNull(),
+  billRef: varchar("billRef", { length: 20 }),
+  amount: decimal("pr_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  reason: text("pr_reason"),
+  createdAt: timestamp("pr_createdAt").defaultNow().notNull(),
+});
+
+export type PurchaseReturn = typeof purchaseReturns.$inferSelect;
+
+// ─── Estimates / Quotations ────────────────────────────────────────────────
+export const estimates = mysqlTable("estimates", {
+  id: int("id").autoincrement().primaryKey(),
+  estimateId: varchar("estimateId", { length: 20 }).notNull().unique(),
+  customerId: int("est_customerId").notNull(),
+  customerName: varchar("est_customerName", { length: 200 }).notNull(),
+  date: varchar("est_date", { length: 10 }).notNull(),
+  validUntil: varchar("validUntil", { length: 10 }),
+  total: decimal("est_total", { precision: 15, scale: 2 }).default("0").notNull(),
+  status: mysqlEnum("est_status", ["Draft", "Sent", "Accepted", "Rejected", "Expired"]).default("Draft").notNull(),
+  notes: text("est_notes"),
+  createdAt: timestamp("est_createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("est_updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Estimate = typeof estimates.$inferSelect;
+
+export const estimateLines = mysqlTable("estimate_lines", {
+  id: int("id").autoincrement().primaryKey(),
+  estimateId: int("el_estimateId").notNull(),
+  description: varchar("el_description", { length: 500 }).notNull(),
+  qty: int("el_qty").default(1).notNull(),
+  rate: decimal("el_rate", { precision: 15, scale: 2 }).default("0").notNull(),
+  amount: decimal("el_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+});
+
+export type EstimateLine = typeof estimateLines.$inferSelect;
+
+// ─── Payments In (Receipts from Customers) ─────────────────────────────────
+export const paymentsIn = mysqlTable("payments_in", {
+  id: int("id").autoincrement().primaryKey(),
+  paymentId: varchar("pi_paymentId", { length: 20 }).notNull().unique(),
+  customerId: int("pi_customerId").notNull(),
+  customerName: varchar("pi_customerName", { length: 200 }).notNull(),
+  date: varchar("pi_date", { length: 10 }).notNull(),
+  amount: decimal("pi_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  mode: varchar("pi_mode", { length: 50 }).default("Cash").notNull(),
+  invoiceRef: varchar("pi_invoiceRef", { length: 20 }),
+  notes: text("pi_notes"),
+  createdAt: timestamp("pi_createdAt").defaultNow().notNull(),
+});
+
+export type PaymentIn = typeof paymentsIn.$inferSelect;
+
+// ─── Payments Out (Payments to Vendors) ────────────────────────────────────
+export const paymentsOut = mysqlTable("payments_out", {
+  id: int("id").autoincrement().primaryKey(),
+  paymentId: varchar("po_paymentId", { length: 20 }).notNull().unique(),
+  vendorId: int("po_vendorId").notNull(),
+  vendorName: varchar("po_vendorName", { length: 200 }).notNull(),
+  date: varchar("po_date", { length: 10 }).notNull(),
+  amount: decimal("po_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  mode: varchar("po_mode", { length: 50 }).default("Cash").notNull(),
+  billRef: varchar("po_billRef", { length: 20 }),
+  notes: text("po_notes"),
+  createdAt: timestamp("po_createdAt").defaultNow().notNull(),
+});
+
+export type PaymentOut = typeof paymentsOut.$inferSelect;
+
+// ─── Cash & Bank Accounts ──────────────────────────────────────────────────
+export const cashBankAccounts = mysqlTable("cash_bank_accounts", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("cb_name", { length: 200 }).notNull(),
+  type: mysqlEnum("cb_type", ["Cash", "Bank", "UPI", "Wallet"]).default("Cash").notNull(),
+  bankName: varchar("bankName", { length: 200 }),
+  accountNumber: varchar("accountNumber", { length: 50 }),
+  balance: decimal("cb_balance", { precision: 15, scale: 2 }).default("0").notNull(),
+  createdAt: timestamp("cb_createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("cb_updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CashBankAccount = typeof cashBankAccounts.$inferSelect;
+
+// ─── Expenses ──────────────────────────────────────────────────────────────
+export const expenses = mysqlTable("expenses", {
+  id: int("id").autoincrement().primaryKey(),
+  expenseId: varchar("expenseId", { length: 20 }).notNull().unique(),
+  date: varchar("exp_date", { length: 10 }).notNull(),
+  category: varchar("exp_category", { length: 100 }).notNull(),
+  amount: decimal("exp_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  paymentMode: varchar("exp_paymentMode", { length: 50 }).default("Cash").notNull(),
+  description: text("exp_description"),
+  gstIncluded: mysqlBoolean("gstIncluded").default(false).notNull(),
+  gstAmount: decimal("gstAmount", { precision: 15, scale: 2 }).default("0"),
+  createdAt: timestamp("exp_createdAt").defaultNow().notNull(),
+});
+
+export type Expense = typeof expenses.$inferSelect;
+
+// ─── Other Income ──────────────────────────────────────────────────────────
+export const otherIncome = mysqlTable("other_income", {
+  id: int("id").autoincrement().primaryKey(),
+  incomeId: varchar("incomeId", { length: 20 }).notNull().unique(),
+  date: varchar("oi_date", { length: 10 }).notNull(),
+  category: varchar("oi_category", { length: 100 }).notNull(),
+  amount: decimal("oi_amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  paymentMode: varchar("oi_paymentMode", { length: 50 }).default("Cash").notNull(),
+  description: text("oi_description"),
+  createdAt: timestamp("oi_createdAt").defaultNow().notNull(),
+});
+
+export type OtherIncomeEntry = typeof otherIncome.$inferSelect;

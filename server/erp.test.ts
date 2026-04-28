@@ -110,6 +110,33 @@ vi.mock("./db", () => {
     upsertSetting: vi.fn().mockResolvedValue(undefined),
     getAllUsers: vi.fn().mockResolvedValue([{ id: 1, openId: "test", name: "Test", email: "test@test.com", role: "admin", loginMethod: "manus", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }]),
     updateUserRole: vi.fn().mockResolvedValue(undefined),
+    // New modules
+    getAllSaleReturns: vi.fn().mockResolvedValue([{ id: 1, returnId: "CR-001", customerId: 1, customerName: "Acme Corp", date: "2026-04-01", invoiceRef: "INV-001", amount: "2000", reason: "Defective" }]),
+    createSaleReturn: vi.fn().mockResolvedValue(undefined),
+    deleteSaleReturn: vi.fn().mockResolvedValue(undefined),
+    getAllPurchaseReturns: vi.fn().mockResolvedValue([{ id: 1, returnId: "DN-001", vendorId: 1, vendorName: "Supplier A", date: "2026-04-01", billRef: "BILL-001", amount: "1000", reason: "Wrong item" }]),
+    createPurchaseReturn: vi.fn().mockResolvedValue(undefined),
+    deletePurchaseReturn: vi.fn().mockResolvedValue(undefined),
+    getAllEstimates: vi.fn().mockResolvedValue([{ id: 1, estimateId: "EST-001", customerId: 1, customerName: "Acme Corp", date: "2026-04-01", validUntil: "2026-05-01", total: "10000", status: "Draft", notes: "", lines: JSON.stringify([]) }]),
+    createEstimate: vi.fn().mockResolvedValue(undefined),
+    updateEstimateStatus: vi.fn().mockResolvedValue(undefined),
+    deleteEstimate: vi.fn().mockResolvedValue(undefined),
+    getAllPaymentsIn: vi.fn().mockResolvedValue([{ id: 1, paymentId: "REC-001", customerId: 1, customerName: "Acme Corp", date: "2026-04-01", amount: "5000", mode: "Cash", invoiceRef: "INV-001", notes: "" }]),
+    createPaymentIn: vi.fn().mockResolvedValue(undefined),
+    deletePaymentIn: vi.fn().mockResolvedValue(undefined),
+    getAllPaymentsOut: vi.fn().mockResolvedValue([{ id: 1, paymentId: "PAY-001", vendorId: 1, vendorName: "Supplier A", date: "2026-04-01", amount: "3000", mode: "Bank Transfer", billRef: "BILL-001", notes: "" }]),
+    createPaymentOut: vi.fn().mockResolvedValue(undefined),
+    deletePaymentOut: vi.fn().mockResolvedValue(undefined),
+    getAllCashBankAccounts: vi.fn().mockResolvedValue([{ id: 1, name: "Main Cash", type: "Cash", bankName: "", accountNumber: "", balance: "50000" }]),
+    createCashBankAccount: vi.fn().mockResolvedValue(undefined),
+    updateCashBankAccount: vi.fn().mockResolvedValue(undefined),
+    deleteCashBankAccount: vi.fn().mockResolvedValue(undefined),
+    getAllExpenses: vi.fn().mockResolvedValue([{ id: 1, expenseId: "EXP-001", date: "2026-04-01", category: "Office Supplies", amount: "500", paymentMode: "Cash", description: "Pens", gstIncluded: false, gstAmount: "0" }]),
+    createExpense: vi.fn().mockResolvedValue(undefined),
+    deleteExpense: vi.fn().mockResolvedValue(undefined),
+    getAllOtherIncome: vi.fn().mockResolvedValue([{ id: 1, incomeId: "INC-001", date: "2026-04-01", category: "Interest Income", amount: "1000", paymentMode: "Bank Transfer", description: "Savings interest" }]),
+    createOtherIncome: vi.fn().mockResolvedValue(undefined),
+    deleteOtherIncome: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -352,5 +379,155 @@ describe("Auth", () => {
     expect(me).toBeDefined();
     expect(me?.name).toBe("Test User");
     expect(me?.role).toBe("user");
+  });
+});
+
+describe("Sale Returns", () => {
+  it("lists sale returns", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const returns = await caller.saleReturns.list();
+    expect(returns.length).toBe(1);
+    expect(returns[0].returnId).toBe("CR-001");
+  });
+
+  it("creates a sale return", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.saleReturns.create({
+      returnId: "CR-002", customerId: 1, customerName: "Acme Corp",
+      date: "2026-04-28", amount: "3000", reason: "Wrong size"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Purchase Returns", () => {
+  it("lists purchase returns", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const returns = await caller.purchaseReturns.list();
+    expect(returns.length).toBe(1);
+    expect(returns[0].returnId).toBe("DN-001");
+  });
+
+  it("creates a purchase return", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.purchaseReturns.create({
+      returnId: "DN-002", vendorId: 1, vendorName: "Supplier A",
+      date: "2026-04-28", amount: "1500", reason: "Damaged"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Estimates", () => {
+  it("lists estimates", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const estimates = await caller.estimates.list();
+    expect(estimates.length).toBe(1);
+    expect(estimates[0].estimateId).toBe("EST-001");
+  });
+
+  it("creates an estimate", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.estimates.create({
+      estimateId: "EST-002", customerId: 1, customerName: "Acme Corp",
+      date: "2026-04-28", total: "8000",
+      lines: [{ description: "Service", qty: 1, rate: "8000", amount: "8000" }]
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("updates estimate status", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.estimates.updateStatus({ id: 1, status: "Sent" });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Payments In", () => {
+  it("lists payments in", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const payments = await caller.paymentsIn.list();
+    expect(payments.length).toBe(1);
+    expect(payments[0].paymentId).toBe("REC-001");
+  });
+
+  it("creates a payment in", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.paymentsIn.create({
+      paymentId: "REC-002", customerId: 1, customerName: "Acme Corp",
+      date: "2026-04-28", amount: "5000", mode: "UPI"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Payments Out", () => {
+  it("lists payments out", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const payments = await caller.paymentsOut.list();
+    expect(payments.length).toBe(1);
+    expect(payments[0].paymentId).toBe("PAY-001");
+  });
+
+  it("creates a payment out", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.paymentsOut.create({
+      paymentId: "PAY-002", vendorId: 1, vendorName: "Supplier A",
+      date: "2026-04-28", amount: "2000", mode: "Cheque"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Cash & Bank", () => {
+  it("lists cash/bank accounts", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const accounts = await caller.cashBank.list();
+    expect(accounts.length).toBe(1);
+    expect(accounts[0].name).toBe("Main Cash");
+  });
+
+  it("creates a cash/bank account", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.cashBank.create({
+      name: "SBI Savings", type: "Bank", bankName: "SBI", accountNumber: "123456", balance: "100000"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Expenses", () => {
+  it("lists expenses", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const expenses = await caller.expenses.list();
+    expect(expenses.length).toBe(1);
+    expect(expenses[0].expenseId).toBe("EXP-001");
+  });
+
+  it("creates an expense", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.expenses.create({
+      expenseId: "EXP-002", date: "2026-04-28", category: "Travel",
+      amount: "1200", paymentMode: "Card", description: "Client meeting"
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Other Income", () => {
+  it("lists other income", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const incomes = await caller.otherIncome.list();
+    expect(incomes.length).toBe(1);
+    expect(incomes[0].incomeId).toBe("INC-001");
+  });
+
+  it("creates other income", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.otherIncome.create({
+      incomeId: "INC-002", date: "2026-04-28", category: "Commission",
+      amount: "5000", paymentMode: "Bank Transfer", description: "Referral commission"
+    });
+    expect(result.success).toBe(true);
   });
 });
