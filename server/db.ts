@@ -1,92 +1,420 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, desc, asc, and, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser, users, accounts, journalEntries, journalLines,
+  customers, invoices, invoiceLines, vendors, bills,
+  inventory, purchaseOrders, employees, payrollRuns,
+  warehouses, supplyChainOrders, deliveryStaff, deliveries, settings
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
+    try { _db = drizzle(process.env.DATABASE_URL); } catch (error) {
+      console.warn("[Database] Failed to connect:", error); _db = null;
     }
   }
   return _db;
 }
 
+// ─── Users ───────────────────────────────────────────────────────────────────
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-
+  if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
-
+  if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
   try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
+    const values: InsertUser = { openId: user.openId };
     const updateSet: Record<string, unknown> = {};
-
     const textFields = ["name", "email", "loginMethod"] as const;
     type TextField = (typeof textFields)[number];
-
     const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
+      const value = user[field]; if (value === undefined) return;
+      const normalized = value ?? null; values[field] = normalized; updateSet[field] = normalized;
     };
-
     textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
-  }
+    if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
+    if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
+    else if (user.openId === ENV.ownerOpenId) { values.role = 'admin'; updateSet.role = 'admin'; }
+    if (!values.lastSignedIn) values.lastSignedIn = new Date();
+    if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+    await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  } catch (error) { console.error("[Database] Failed to upsert user:", error); throw error; }
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
+  if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function getAllUsers() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(users).orderBy(desc(users.createdAt));
+}
+
+export async function updateUserRole(userId: number, role: "user" | "admin") {
+  const db = await getDb(); if (!db) return;
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+// ─── Accounts ────────────────────────────────────────────────────────────────
+export async function getAllAccounts() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(accounts).orderBy(asc(accounts.code));
+}
+
+export async function createAccount(data: { code: string; name: string; type: string; subtype?: string; balance?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(accounts).values(data as any);
+}
+
+export async function updateAccount(id: number, data: Partial<{ code: string; name: string; type: string; subtype: string; balance: string }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(accounts).set(data as any).where(eq(accounts.id, id));
+}
+
+export async function deleteAccount(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(accounts).where(eq(accounts.id, id));
+}
+
+// ─── Journal Entries ─────────────────────────────────────────────────────────
+export async function getAllJournalEntries() {
+  const db = await getDb(); if (!db) return [];
+  const entries = await db.select().from(journalEntries).orderBy(desc(journalEntries.date));
+  const lines = await db.select().from(journalLines);
+  return entries.map(e => ({ ...e, lines: lines.filter(l => l.journalEntryId === e.id) }));
+}
+
+export async function createJournalEntry(data: { entryId: string; date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(journalEntries).values({ entryId: data.entryId, date: data.date, description: data.description, posted: data.posted }).$returningId();
+  if (data.lines.length > 0) {
+    await db.insert(journalLines).values(data.lines.map(l => ({ journalEntryId: result.id, account: l.account, debit: l.debit, credit: l.credit })));
+  }
+}
+
+export async function updateJournalEntry(id: number, data: { date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
+  const db = await getDb(); if (!db) return;
+  await db.update(journalEntries).set({ date: data.date, description: data.description, posted: data.posted }).where(eq(journalEntries.id, id));
+  await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
+  if (data.lines.length > 0) {
+    await db.insert(journalLines).values(data.lines.map(l => ({ journalEntryId: id, account: l.account, debit: l.debit, credit: l.credit })));
+  }
+}
+
+export async function deleteJournalEntry(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
+  await db.delete(journalEntries).where(eq(journalEntries.id, id));
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+export async function getAllCustomers() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(customers).orderBy(asc(customers.name));
+}
+
+export async function createCustomer(data: { name: string; email?: string; phone?: string; city?: string; address?: string; balance?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(customers).values(data as any);
+}
+
+export async function updateCustomer(id: number, data: Partial<{ name: string; email: string; phone: string; city: string; address: string; balance: string }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(customers).set(data as any).where(eq(customers.id, id));
+}
+
+export async function deleteCustomer(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(customers).where(eq(customers.id, id));
+}
+
+// ─── Invoices ────────────────────────────────────────────────────────────────
+export async function getAllInvoices() {
+  const db = await getDb(); if (!db) return [];
+  const invs = await db.select().from(invoices).orderBy(desc(invoices.date));
+  const lines = await db.select().from(invoiceLines);
+  return invs.map(i => ({ ...i, lines: lines.filter(l => l.invoiceId === i.id) }));
+}
+
+export async function createInvoice(data: { invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string; total: string; lines: { description: string; qty: number; rate: string; amount: string }[] }) {
+  const db = await getDb(); if (!db) return;
+  const [result] = await db.insert(invoices).values({ invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName, date: data.date, dueDate: data.dueDate, status: data.status as any, total: data.total }).$returningId();
+  if (data.lines.length > 0) {
+    await db.insert(invoiceLines).values(data.lines.map(l => ({ invoiceId: result.id, description: l.description, qty: l.qty, rate: l.rate, amount: l.amount })));
+  }
+}
+
+export async function updateInvoiceStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(invoices).set({ status: status as any }).where(eq(invoices.id, id));
+}
+
+export async function deleteInvoice(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id));
+  await db.delete(invoices).where(eq(invoices.id, id));
+}
+
+// ─── Vendors ─────────────────────────────────────────────────────────────────
+export async function getAllVendors() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(vendors).orderBy(asc(vendors.name));
+}
+
+export async function createVendor(data: { name: string; email?: string; phone?: string; category?: string; address?: string; balance?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(vendors).values(data as any);
+}
+
+export async function updateVendor(id: number, data: Partial<{ name: string; email: string; phone: string; category: string; address: string; balance: string }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(vendors).set(data as any).where(eq(vendors.id, id));
+}
+
+export async function deleteVendor(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(vendors).where(eq(vendors.id, id));
+}
+
+// ─── Bills ───────────────────────────────────────────────────────────────────
+export async function getAllBills() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(bills).orderBy(desc(bills.date));
+}
+
+export async function createBill(data: { billId: string; vendorId: number; vendorName: string; date: string; dueDate: string; amount: string; description?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(bills).values(data as any);
+}
+
+export async function updateBillStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(bills).set({ status: status as any }).where(eq(bills.id, id));
+}
+
+export async function deleteBill(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(bills).where(eq(bills.id, id));
+}
+
+// ─── Inventory ───────────────────────────────────────────────────────────────
+export async function getAllInventory() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(inventory).orderBy(asc(inventory.name));
+}
+
+export async function createInventoryItem(data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(inventory).values(data as any);
+}
+
+export async function updateInventoryItem(id: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(inventory).set(data as any).where(eq(inventory.id, id));
+}
+
+export async function deleteInventoryItem(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(inventory).where(eq(inventory.id, id));
+}
+
+// ─── Purchase Orders ─────────────────────────────────────────────────────────
+export async function getAllPurchaseOrders() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.date));
+}
+
+export async function createPurchaseOrder(data: { poId: string; vendorId: number; vendorName: string; date: string; expectedDate?: string; total: string; description?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(purchaseOrders).values(data as any);
+}
+
+export async function updatePOStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(purchaseOrders).set({ status: status as any }).where(eq(purchaseOrders.id, id));
+}
+
+export async function deletePurchaseOrder(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
+}
+
+// ─── Employees ───────────────────────────────────────────────────────────────
+export async function getAllEmployees() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(employees).orderBy(asc(employees.name));
+}
+
+export async function createEmployee(data: { empId: string; name: string; title?: string; dept?: string; type: string; salary: string; rate: string; email?: string; startDate?: string; active: boolean }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(employees).values(data as any);
+}
+
+export async function updateEmployee(id: number, data: Partial<{ name: string; title: string; dept: string; type: string; salary: string; rate: string; email: string; startDate: string; active: boolean }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(employees).set(data as any).where(eq(employees.id, id));
+}
+
+export async function deleteEmployee(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(employees).where(eq(employees.id, id));
+}
+
+// ─── Payroll ─────────────────────────────────────────────────────────────────
+export async function getAllPayrollRuns() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(payrollRuns).orderBy(desc(payrollRuns.runDate));
+}
+
+export async function createPayrollRun(data: { payrollId: string; period: string; runDate: string; gross: string; fedTax: string; stateTax: string; ssMed: string; net: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(payrollRuns).values(data as any);
+}
+
+// ─── Warehouses ──────────────────────────────────────────────────────────────
+export async function getAllWarehouses() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(warehouses).orderBy(asc(warehouses.name));
+}
+
+export async function createWarehouse(data: { name: string; location?: string; capacity?: number; manager?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(warehouses).values(data as any);
+}
+
+export async function updateWarehouse(id: number, data: Partial<{ name: string; location: string; capacity: number; manager: string }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(warehouses).set(data as any).where(eq(warehouses.id, id));
+}
+
+export async function deleteWarehouse(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(warehouses).where(eq(warehouses.id, id));
+}
+
+// ─── Supply Chain ────────────────────────────────────────────────────────────
+export async function getAllSupplyChainOrders() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(supplyChainOrders).orderBy(desc(supplyChainOrders.orderDate));
+}
+
+export async function createSupplyChainOrder(data: { orderId: string; supplierName: string; itemName: string; qty: number; orderDate: string; expectedDate?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(supplyChainOrders).values(data as any);
+}
+
+export async function updateSCOrderStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(supplyChainOrders).set({ status: status as any }).where(eq(supplyChainOrders.id, id));
+}
+
+export async function deleteSCOrder(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(supplyChainOrders).where(eq(supplyChainOrders.id, id));
+}
+
+// ─── Delivery Staff ──────────────────────────────────────────────────────────
+export async function getAllDeliveryStaff() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(deliveryStaff).orderBy(asc(deliveryStaff.name));
+}
+
+export async function createDeliveryStaffMember(data: { staffId: string; name: string; phone?: string; email?: string; vehicleType?: string; vehicleNumber?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(deliveryStaff).values(data as any);
+}
+
+export async function updateDeliveryStaffMember(id: number, data: Partial<{ name: string; phone: string; email: string; vehicleType: string; vehicleNumber: string; active: boolean }>) {
+  const db = await getDb(); if (!db) return;
+  await db.update(deliveryStaff).set(data as any).where(eq(deliveryStaff.id, id));
+}
+
+export async function deleteDeliveryStaffMember(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(deliveryStaff).where(eq(deliveryStaff.id, id));
+}
+
+// ─── Deliveries ──────────────────────────────────────────────────────────────
+export async function getAllDeliveries() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(deliveries).orderBy(desc(deliveries.createdAt));
+}
+
+export async function createDelivery(data: { deliveryId: string; staffId?: number; staffName?: string; customerName: string; address?: string; invoiceId?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(deliveries).values(data as any);
+}
+
+export async function updateDeliveryStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(deliveries).set({ status: status as any }).where(eq(deliveries.id, id));
+}
+
+export async function assignDelivery(id: number, staffId: number, staffName: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(deliveries).set({ staffId, staffName, status: "Assigned" as any }).where(eq(deliveries.id, id));
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+export async function getAllSettings() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(settings);
+}
+
+export async function upsertSetting(key: string, value: string) {
+  const db = await getDb(); if (!db) return;
+  const existing = await db.select().from(settings).where(eq(settings.key, key)).limit(1);
+  if (existing.length > 0) {
+    await db.update(settings).set({ value }).where(eq(settings.key, key));
+  } else {
+    await db.insert(settings).values({ key, value });
+  }
+}
+
+// ─── Dashboard Aggregates ────────────────────────────────────────────────────
+export async function getDashboardData() {
+  const db = await getDb(); if (!db) return null;
+  const accts = await db.select().from(accounts);
+  const invs = await db.select().from(invoices);
+  const bls = await db.select().from(bills);
+  const inv = await db.select().from(inventory);
+  const jes = await db.select().from(journalEntries).orderBy(desc(journalEntries.date)).limit(5);
+  const jeLines = await db.select().from(journalLines);
+  const recentJEs = jes.map(e => ({ ...e, lines: jeLines.filter(l => l.journalEntryId === e.id) }));
+
+  const totalRevenue = accts.filter(a => a.type === 'Revenue').reduce((s, a) => s + Number(a.balance), 0);
+  const totalExpenses = accts.filter(a => a.type === 'Expense').reduce((s, a) => s + Number(a.balance), 0);
+  const netIncome = totalRevenue - totalExpenses;
+  const totalAssets = accts.filter(a => a.type === 'Asset').reduce((s, a) => s + Number(a.balance), 0);
+  const arOutstanding = invs.filter(i => i.status !== 'Paid').reduce((s, i) => s + Number(i.total), 0);
+  const apOutstanding = bls.filter(b => b.status === 'Pending').reduce((s, b) => s + Number(b.amount), 0);
+  const inventoryValue = inv.reduce((s, i) => s + i.qty * Number(i.cost), 0);
+  const lowStockItems = inv.filter(i => i.qty <= i.reorder);
+  const upcomingBills = bls.filter(b => b.status === 'Pending').slice(0, 4);
+
+  return {
+    totalRevenue, totalExpenses, netIncome, totalAssets, arOutstanding, apOutstanding,
+    inventoryValue, lowStockItems, upcomingBills, recentJEs
+  };
+}
+
+// ─── Next ID helpers ─────────────────────────────────────────────────────────
+export async function getNextId(table: string, prefix: string) {
+  const db = await getDb(); if (!db) return `${prefix}-001`;
+  let count = 0;
+  if (table === 'invoices') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(invoices); count = r[0]?.c || 0; }
+  else if (table === 'bills') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(bills); count = r[0]?.c || 0; }
+  else if (table === 'journal_entries') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(journalEntries); count = r[0]?.c || 0; }
+  else if (table === 'purchase_orders') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(purchaseOrders); count = r[0]?.c || 0; }
+  else if (table === 'employees') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(employees); count = r[0]?.c || 0; }
+  else if (table === 'payroll_runs') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(payrollRuns); count = r[0]?.c || 0; }
+  else if (table === 'supply_chain_orders') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(supplyChainOrders); count = r[0]?.c || 0; }
+  else if (table === 'delivery_staff') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(deliveryStaff); count = r[0]?.c || 0; }
+  else if (table === 'deliveries') { const r = await db.select({ c: sql<number>`COUNT(*)` }).from(deliveries); count = r[0]?.c || 0; }
+  return `${prefix}-${String(count + 1).padStart(3, '0')}`;
+}
