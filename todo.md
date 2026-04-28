@@ -149,8 +149,13 @@
 ## Future Enhancements (Not Yet Implemented)
 - [x] Subscription management UI page (plans comparison + billing info)
 - [x] Multi-Tenant foundation (companies, members, subscriptions tables + CRUD APIs + UI)
-- [ ] Full companyId scoping across all business tables (future — requires schema-wide migration)
-- [ ] Subdomain routing per company (future — requires custom domain setup)
+- [x] companyId column added to 25 business tables (schema migration done)
+- [x] Company switcher in sidebar (localStorage-based active company selection)
+- [x] Company onboarding page for new users (30-day trial auto-start)
+- [x] Active company propagation via x-company-id header from frontend to backend
+- [x] Update all DB helpers and tRPC procedures to filter by companyId
+- [x] Cross-company data isolation vitest tests (72 tests passing, 6 dedicated isolation tests)
+- [ ] Subdomain routing per company (requires custom domain setup — post-deployment)
 - [x] Subscription plans UI with trial tracking and plan comparison
 - [ ] Stripe/Razorpay payment gateway integration (future — requires API keys)
 - [x] 30-day free trial tracking (auto-created on company creation)

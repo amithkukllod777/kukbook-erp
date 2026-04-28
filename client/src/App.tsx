@@ -4,13 +4,15 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { CompanyProvider, useCompany } from "./contexts/CompanyContext";
 import DashboardLayout from "./components/DashboardLayout";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 // Lazy-loaded pages
 const Landing = lazy(() => import("./pages/Landing"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Accounts = lazy(() => import("./pages/Accounts"));
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
@@ -29,7 +31,6 @@ const Deliveries = lazy(() => import("./pages/Deliveries"));
 const Reports = lazy(() => import("./pages/Reports"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
-// New modules
 const SaleReturns = lazy(() => import("./pages/SaleReturns"));
 const PurchaseReturns = lazy(() => import("./pages/PurchaseReturns"));
 const Estimates = lazy(() => import("./pages/Estimates"));
@@ -110,6 +111,30 @@ function AuthenticatedRouter() {
   );
 }
 
+function CompanyGate() {
+  const { companies, isLoading } = useCompany();
+  const [onboarded, setOnboarded] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // No companies yet — show onboarding
+  if (companies.length === 0 && !onboarded) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Onboarding onComplete={() => setOnboarded(true)} />
+      </Suspense>
+    );
+  }
+
+  return <AuthenticatedRouter />;
+}
+
 function AppRouter() {
   const { user, loading } = useAuth();
 
@@ -130,8 +155,12 @@ function AppRouter() {
     );
   }
 
-  // Authenticated — show ERP dashboard
-  return <AuthenticatedRouter />;
+  // Authenticated — wrap with CompanyProvider and check for company
+  return (
+    <CompanyProvider>
+      <CompanyGate />
+    </CompanyProvider>
+  );
 }
 
 function App() {

@@ -1,7 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, companyProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { notifyOwner } from "./_core/notification";
@@ -19,161 +19,161 @@ export const appRouter = router({
 
   // ─── Dashboard ───────────────────────────────────────────────────────
   dashboard: router({
-    getData: protectedProcedure.query(async () => db.getDashboardData()),
+    getData: companyProcedure.query(async ({ ctx }) => db.getDashboardData(ctx.companyId)),
   }),
 
   // ─── Accounts (COA) ─────────────────────────────────────────────────
   accounts: router({
-    list: protectedProcedure.query(async () => db.getAllAccounts()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllAccounts(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       code: z.string(), name: z.string(), type: z.string(), subtype: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createAccount(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createAccount(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), code: z.string().optional(), name: z.string().optional(), type: z.string().optional(), subtype: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateAccount(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteAccount(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateAccount(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteAccount(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Journal Entries ─────────────────────────────────────────────────
   journal: router({
-    list: protectedProcedure.query(async () => db.getAllJournalEntries()),
-    nextId: protectedProcedure.query(async () => db.getNextId('journal_entries', 'JE')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllJournalEntries(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('journal_entries', 'JE')),
+    create: companyProcedure.input(z.object({
       entryId: z.string(), date: z.string(), description: z.string(), posted: z.boolean(),
       lines: z.array(z.object({ account: z.string(), debit: z.string(), credit: z.string() }))
-    })).mutation(async ({ input }) => { await db.createJournalEntry(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createJournalEntry(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), date: z.string(), description: z.string(), posted: z.boolean(),
       lines: z.array(z.object({ account: z.string(), debit: z.string(), credit: z.string() }))
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateJournalEntry(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteJournalEntry(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateJournalEntry(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteJournalEntry(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Customers ───────────────────────────────────────────────────────
   customers: router({
-    list: protectedProcedure.query(async () => db.getAllCustomers()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllCustomers(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       name: z.string(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createCustomer(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createCustomer(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCustomer(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteCustomer(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateCustomer(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteCustomer(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Invoices ────────────────────────────────────────────────────────
   invoices: router({
-    list: protectedProcedure.query(async () => db.getAllInvoices()),
-    nextId: protectedProcedure.query(async () => db.getNextId('invoices', 'INV')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllInvoices(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('invoices', 'INV')),
+    create: companyProcedure.input(z.object({
       invoiceId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), dueDate: z.string(), status: z.string(), total: z.string(),
       lines: z.array(z.object({ description: z.string(), qty: z.number(), rate: z.string(), discount: z.string().optional(), amount: z.string() }))
-    })).mutation(async ({ input }) => { await db.createInvoice(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => {
-      await db.updateInvoiceStatus(input.id, input.status);
+    })).mutation(async ({ ctx, input }) => { await db.createInvoice(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => {
+      await db.updateInvoiceStatus(input.id, ctx.companyId, input.status);
       if (input.status === 'Sent') {
-        const invoices = await db.getAllInvoices();
+        const invoices = await db.getAllInvoices(ctx.companyId);
         const inv = invoices.find((i: any) => i.id === input.id);
         if (inv) notifyOwner({ title: `Invoice ${inv.invoiceId} Sent`, content: `Invoice ${inv.invoiceId} for ${inv.customerName} (${inv.total}) has been marked as Sent.` }).catch(() => {});
       }
       if (input.status === 'Overdue') {
-        const invoices = await db.getAllInvoices();
+        const invoices = await db.getAllInvoices(ctx.companyId);
         const inv = invoices.find((i: any) => i.id === input.id);
         if (inv) notifyOwner({ title: `Invoice ${inv.invoiceId} OVERDUE`, content: `Invoice ${inv.invoiceId} for ${inv.customerName} (${inv.total}) is now overdue. Due date: ${inv.dueDate}` }).catch(() => {});
       }
       return { success: true };
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteInvoice(input.id); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteInvoice(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Sale Returns ───────────────────────────────────────────────────
   saleReturns: router({
-    list: protectedProcedure.query(async () => db.getAllSaleReturns()),
-    nextId: protectedProcedure.query(async () => db.getNextId('sale_returns', 'CR')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllSaleReturns(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('sale_returns', 'CR')),
+    create: companyProcedure.input(z.object({
       returnId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), invoiceRef: z.string().optional(), amount: z.string(), reason: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createSaleReturn(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteSaleReturn(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createSaleReturn(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteSaleReturn(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Estimates ──────────────────────────────────────────────────────
   estimates: router({
-    list: protectedProcedure.query(async () => db.getAllEstimates()),
-    nextId: protectedProcedure.query(async () => db.getNextId('estimates', 'EST')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllEstimates(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('estimates', 'EST')),
+    create: companyProcedure.input(z.object({
       estimateId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), validUntil: z.string().optional(), total: z.string(), notes: z.string().optional(),
       lines: z.array(z.object({ description: z.string(), qty: z.number(), rate: z.string(), amount: z.string() }))
-    })).mutation(async ({ input }) => { await db.createEstimate(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateEstimateStatus(input.id, input.status); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteEstimate(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createEstimate(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateEstimateStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteEstimate(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Payments In ────────────────────────────────────────────────────
   paymentsIn: router({
-    list: protectedProcedure.query(async () => db.getAllPaymentsIn()),
-    nextId: protectedProcedure.query(async () => db.getNextId('payments_in', 'REC')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllPaymentsIn(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('payments_in', 'REC')),
+    create: companyProcedure.input(z.object({
       paymentId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), amount: z.string(), mode: z.string(), invoiceRef: z.string().optional(), notes: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createPaymentIn(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePaymentIn(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createPaymentIn(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deletePaymentIn(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Vendors ─────────────────────────────────────────────────────────
   vendors: router({
-    list: protectedProcedure.query(async () => db.getAllVendors()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllVendors(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       name: z.string(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createVendor(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createVendor(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateVendor(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteVendor(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateVendor(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteVendor(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Bills ───────────────────────────────────────────────────────────
   bills: router({
-    list: protectedProcedure.query(async () => db.getAllBills()),
-    nextId: protectedProcedure.query(async () => db.getNextId('bills', 'BILL')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllBills(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('bills', 'BILL')),
+    create: companyProcedure.input(z.object({
       billId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), dueDate: z.string(), amount: z.string(), description: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createBill(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateBillStatus(input.id, input.status); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteBill(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createBill(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateBillStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteBill(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Purchase Returns ───────────────────────────────────────────────
   purchaseReturns: router({
-    list: protectedProcedure.query(async () => db.getAllPurchaseReturns()),
-    nextId: protectedProcedure.query(async () => db.getNextId('purchase_returns', 'DN')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllPurchaseReturns(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('purchase_returns', 'DN')),
+    create: companyProcedure.input(z.object({
       returnId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), billRef: z.string().optional(), amount: z.string(), reason: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createPurchaseReturn(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePurchaseReturn(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createPurchaseReturn(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deletePurchaseReturn(input.id, ctx.companyId); return { success: true }; }),
   }),
 
-  // ─── Payments Out ───────────────────────────────────────────────────
+  // ─── Payments Out ──────────────────────────────────────────────────
   paymentsOut: router({
-    list: protectedProcedure.query(async () => db.getAllPaymentsOut()),
-    nextId: protectedProcedure.query(async () => db.getNextId('payments_out', 'PAY')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllPaymentsOut(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('payments_out', 'PAY')),
+    create: companyProcedure.input(z.object({
       paymentId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), amount: z.string(), mode: z.string(), billRef: z.string().optional(), notes: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createPaymentOut(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePaymentOut(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createPaymentOut(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deletePaymentOut(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Inventory ───────────────────────────────────────────────────────
   inventory: router({
-    list: protectedProcedure.query(async () => db.getAllInventory()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllInventory(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createInventoryItem(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createInventoryItem(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), sku: z.string().optional(), name: z.string().optional(), category: z.string().optional(), qty: z.number().optional(), cost: z.string().optional(), reorder: z.number().optional(), warehouseId: z.number().optional(), hsnCode: z.string().optional(), gstRate: z.string().optional()
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      await db.updateInventoryItem(id, data);
+      await db.updateInventoryItem(id, ctx.companyId, data);
       if (data.qty !== undefined) {
-        const items = await db.getAllInventory();
+        const items = await db.getAllInventory(ctx.companyId);
         const item = items.find((i: any) => i.id === id);
         if (item && Number(item.qty) <= Number(item.reorder)) {
           notifyOwner({ title: `Low Stock Alert: ${item.name}`, content: `${item.name} (SKU: ${item.sku}) is at ${item.qty} units, below reorder level of ${item.reorder}.` }).catch(() => {});
@@ -181,181 +181,188 @@ export const appRouter = router({
       }
       return { success: true };
     }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteInventoryItem(input.id); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteInventoryItem(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Purchase Orders ─────────────────────────────────────────────────
   purchaseOrders: router({
-    list: protectedProcedure.query(async () => db.getAllPurchaseOrders()),
-    nextId: protectedProcedure.query(async () => db.getNextId('purchase_orders', 'PO')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllPurchaseOrders(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('purchase_orders', 'PO')),
+    create: companyProcedure.input(z.object({
       poId: z.string(), vendorId: z.number(), vendorName: z.string(), date: z.string(), expectedDate: z.string().optional(), total: z.string(), description: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createPurchaseOrder(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updatePOStatus(input.id, input.status); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePurchaseOrder(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createPurchaseOrder(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updatePOStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deletePurchaseOrder(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Employees ───────────────────────────────────────────────────────
   employees: router({
-    list: protectedProcedure.query(async () => db.getAllEmployees()),
-    nextId: protectedProcedure.query(async () => db.getNextId('employees', 'EMP')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllEmployees(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('employees', 'EMP')),
+    create: companyProcedure.input(z.object({
       empId: z.string(), name: z.string(), title: z.string().optional(), dept: z.string().optional(), type: z.string(), salary: z.string(), rate: z.string(), email: z.string().optional(), startDate: z.string().optional(), active: z.boolean()
-    })).mutation(async ({ input }) => { await db.createEmployee(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createEmployee(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), title: z.string().optional(), dept: z.string().optional(), type: z.string().optional(), salary: z.string().optional(), rate: z.string().optional(), email: z.string().optional(), startDate: z.string().optional(), active: z.boolean().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateEmployee(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteEmployee(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateEmployee(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteEmployee(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Payroll ─────────────────────────────────────────────────────────
   payroll: router({
-    list: protectedProcedure.query(async () => db.getAllPayrollRuns()),
-    nextId: protectedProcedure.query(async () => db.getNextId('payroll_runs', 'PR')),
-    run: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllPayrollRuns(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('payroll_runs', 'PR')),
+    run: companyProcedure.input(z.object({
       payrollId: z.string(), period: z.string(), runDate: z.string(), gross: z.string(), fedTax: z.string(), stateTax: z.string(), ssMed: z.string(), net: z.string()
-    })).mutation(async ({ input }) => { await db.createPayrollRun(input); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createPayrollRun(ctx.companyId, input); return { success: true }; }),
   }),
 
   // ─── Warehouses ──────────────────────────────────────────────────────
   warehouses: router({
-    list: protectedProcedure.query(async () => db.getAllWarehouses()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllWarehouses(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       name: z.string(), location: z.string().optional(), capacity: z.number().optional(), manager: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createWarehouse(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createWarehouse(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), location: z.string().optional(), capacity: z.number().optional(), manager: z.string().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateWarehouse(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteWarehouse(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateWarehouse(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteWarehouse(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Supply Chain ────────────────────────────────────────────────────
   supplyChain: router({
-    list: protectedProcedure.query(async () => db.getAllSupplyChainOrders()),
-    nextId: protectedProcedure.query(async () => db.getNextId('supply_chain_orders', 'SC')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllSupplyChainOrders(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('supply_chain_orders', 'SC')),
+    create: companyProcedure.input(z.object({
       orderId: z.string(), supplierName: z.string(), itemName: z.string(), qty: z.number(), orderDate: z.string(), expectedDate: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createSupplyChainOrder(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateSCOrderStatus(input.id, input.status); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteSCOrder(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createSupplyChainOrder(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateSCOrderStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteSCOrder(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Delivery Staff ──────────────────────────────────────────────────
   deliveryStaff: router({
-    list: protectedProcedure.query(async () => db.getAllDeliveryStaff()),
-    nextId: protectedProcedure.query(async () => db.getNextId('delivery_staff', 'DS')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllDeliveryStaff(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('delivery_staff', 'DS')),
+    create: companyProcedure.input(z.object({
       staffId: z.string(), name: z.string(), phone: z.string().optional(), email: z.string().optional(), vehicleType: z.string().optional(), vehicleNumber: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createDeliveryStaffMember(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createDeliveryStaffMember(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), phone: z.string().optional(), email: z.string().optional(), vehicleType: z.string().optional(), vehicleNumber: z.string().optional(), active: z.boolean().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateDeliveryStaffMember(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteDeliveryStaffMember(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateDeliveryStaffMember(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteDeliveryStaffMember(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Deliveries ──────────────────────────────────────────────────────
   deliveries: router({
-    list: protectedProcedure.query(async () => db.getAllDeliveries()),
-    nextId: protectedProcedure.query(async () => db.getNextId('deliveries', 'DEL')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllDeliveries(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('deliveries', 'DEL')),
+    create: companyProcedure.input(z.object({
       deliveryId: z.string(), staffId: z.number().optional(), staffName: z.string().optional(), customerName: z.string(), address: z.string().optional(), invoiceId: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createDelivery(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateDeliveryStatus(input.id, input.status); return { success: true }; }),
-    assign: protectedProcedure.input(z.object({ id: z.number(), staffId: z.number(), staffName: z.string() })).mutation(async ({ input }) => { await db.assignDelivery(input.id, input.staffId, input.staffName); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createDelivery(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateDeliveryStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
+    assign: companyProcedure.input(z.object({ id: z.number(), staffId: z.number(), staffName: z.string() })).mutation(async ({ ctx, input }) => { await db.assignDelivery(input.id, ctx.companyId, input.staffId, input.staffName); return { success: true }; }),
   }),
 
   // ─── Cash & Bank ────────────────────────────────────────────────────
   cashBank: router({
-    list: protectedProcedure.query(async () => db.getAllCashBankAccounts()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllCashBankAccounts(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       name: z.string(), type: z.string(), bankName: z.string().optional(), accountNumber: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createCashBankAccount(input); return { success: true }; }),
-    update: protectedProcedure.input(z.object({
+    })).mutation(async ({ ctx, input }) => { await db.createCashBankAccount(ctx.companyId, input); return { success: true }; }),
+    update: companyProcedure.input(z.object({
       id: z.number(), name: z.string().optional(), type: z.string().optional(), bankName: z.string().optional(), accountNumber: z.string().optional(), balance: z.string().optional()
-    })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCashBankAccount(id, data); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteCashBankAccount(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateCashBankAccount(id, ctx.companyId, data); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteCashBankAccount(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Expenses ───────────────────────────────────────────────────────
   expenses: router({
-    list: protectedProcedure.query(async () => db.getAllExpenses()),
-    nextId: protectedProcedure.query(async () => db.getNextId('expenses', 'EXP')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllExpenses(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('expenses', 'EXP')),
+    create: companyProcedure.input(z.object({
       expenseId: z.string(), date: z.string(), category: z.string(), amount: z.string(), paymentMode: z.string(), description: z.string().optional(), gstIncluded: z.boolean().optional(), gstAmount: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createExpense(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteExpense(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createExpense(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteExpense(input.id, ctx.companyId); return { success: true }; }),
   }),
 
   // ─── Other Income ───────────────────────────────────────────────────
   otherIncome: router({
-    list: protectedProcedure.query(async () => db.getAllOtherIncome()),
-    nextId: protectedProcedure.query(async () => db.getNextId('other_income', 'INC')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllOtherIncome(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('other_income', 'INC')),
+    create: companyProcedure.input(z.object({
       incomeId: z.string(), date: z.string(), category: z.string(), amount: z.string(), paymentMode: z.string(), description: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createOtherIncome(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteOtherIncome(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createOtherIncome(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteOtherIncome(input.id, ctx.companyId); return { success: true }; }),
   }),
 
-    // ─── Delivery Challans ──────────────────────────────────────────────
+  // ─── Delivery Challans ──────────────────────────────────────────────
   deliveryChallans: router({
-    list: protectedProcedure.query(async () => db.getAllDeliveryChallans()),
-    nextId: protectedProcedure.query(async () => db.getNextId('delivery_challans', 'DC')),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllDeliveryChallans(ctx.companyId)),
+    nextId: companyProcedure.query(async () => db.getNextId('delivery_challans', 'DC')),
+    create: companyProcedure.input(z.object({
       challanId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(),
       invoiceRef: z.string().optional(), items: z.any().optional(), transportMode: z.string().optional(),
       vehicleNumber: z.string().optional(), notes: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createDeliveryChallan(input); return { success: true }; }),
-    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ input }) => { await db.updateDeliveryChallanStatus(input.id, input.status); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteDeliveryChallan(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createDeliveryChallan(ctx.companyId, input); return { success: true }; }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => { await db.updateDeliveryChallanStatus(input.id, ctx.companyId, input.status); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteDeliveryChallan(input.id, ctx.companyId); return { success: true }; }),
   }),
+
   // ─── Party Groups ──────────────────────────────────────────────────
   partyGroups: router({
-    list: protectedProcedure.query(async () => db.getAllPartyGroups()),
-    create: protectedProcedure.input(z.object({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllPartyGroups(ctx.companyId)),
+    create: companyProcedure.input(z.object({
       name: z.string(), type: z.string(), description: z.string().optional()
-    })).mutation(async ({ input }) => { await db.createPartyGroup(input); return { success: true }; }),
-    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deletePartyGroup(input.id); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createPartyGroup(ctx.companyId, input); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deletePartyGroup(input.id, ctx.companyId); return { success: true }; }),
   }),
+
   // ─── GST Reports ──────────────────────────────────────────────────
   gst: router({
-    summary: protectedProcedure.query(async () => db.getGSTSummary()),
+    summary: companyProcedure.query(async ({ ctx }) => db.getGSTSummary(ctx.companyId)),
   }),
+
   // ─── Advanced Reports ─────────────────────────────────────────────
   advancedReports: router({
-    dayBook: protectedProcedure.input(z.object({ date: z.string() })).query(async ({ input }) => db.getDayBook(input.date)),
-    cashflow: protectedProcedure.query(async () => db.getCashflowReport()),
-    aging: protectedProcedure.query(async () => db.getAgingReport()),
-    stockSummary: protectedProcedure.query(async () => db.getStockSummary()),
-    partyStatement: protectedProcedure.input(z.object({ partyType: z.enum(['customer', 'vendor']), partyId: z.number() })).query(async ({ input }) => db.getPartyStatement(input.partyType, input.partyId)),
+    dayBook: companyProcedure.input(z.object({ date: z.string() })).query(async ({ ctx, input }) => db.getDayBook(ctx.companyId, input.date)),
+    cashflow: companyProcedure.query(async ({ ctx }) => db.getCashflowReport(ctx.companyId)),
+    aging: companyProcedure.query(async ({ ctx }) => db.getAgingReport(ctx.companyId)),
+    stockSummary: companyProcedure.query(async ({ ctx }) => db.getStockSummary(ctx.companyId)),
+    partyStatement: companyProcedure.input(z.object({ partyType: z.enum(['customer', 'vendor']), partyId: z.number() })).query(async ({ ctx, input }) => db.getPartyStatement(ctx.companyId, input.partyType, input.partyId)),
   }),
+
   // ─── Bulk Import ─────────────────────────────────────────────────────
   bulkImport: router({
-    customers: protectedProcedure.input(z.object({ rows: z.array(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional() })) })).mutation(async ({ input }) => {
+    customers: companyProcedure.input(z.object({ rows: z.array(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional() })) })).mutation(async ({ ctx, input }) => {
       let imported = 0;
-      for (const row of input.rows) { await db.createCustomer(row); imported++; }
+      for (const row of input.rows) { await db.createCustomer(ctx.companyId, row); imported++; }
       return { success: true, imported };
     }),
-    vendors: protectedProcedure.input(z.object({ rows: z.array(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional() })) })).mutation(async ({ input }) => {
+    vendors: companyProcedure.input(z.object({ rows: z.array(z.object({ name: z.string(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional() })) })).mutation(async ({ ctx, input }) => {
       let imported = 0;
-      for (const row of input.rows) { await db.createVendor(row); imported++; }
+      for (const row of input.rows) { await db.createVendor(ctx.companyId, row); imported++; }
       return { success: true, imported };
     }),
-    inventory: protectedProcedure.input(z.object({ rows: z.array(z.object({ sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number().optional() })) })).mutation(async ({ input }) => {
+    inventory: companyProcedure.input(z.object({ rows: z.array(z.object({ sku: z.string(), name: z.string(), category: z.string().optional(), qty: z.number(), cost: z.string(), reorder: z.number().optional() })) })).mutation(async ({ ctx, input }) => {
       let imported = 0;
-      for (const row of input.rows) { await db.createInventoryItem({ ...row, reorder: row.reorder || 10 }); imported++; }
+      for (const row of input.rows) { await db.createInventoryItem(ctx.companyId, { ...row, reorder: row.reorder || 10 }); imported++; }
       return { success: true, imported };
     }),
   }),
+
   // ─── Settings ────────────────────────────────────────────────────────
   settings: router({
-    list: protectedProcedure.query(async () => db.getAllSettings()),
-    upsert: adminProcedure.input(z.object({ key: z.string(), value: z.string() })).mutation(async ({ input }) => { await db.upsertSetting(input.key, input.value); return { success: true }; }),
+    list: companyProcedure.query(async ({ ctx }) => db.getAllSettings(ctx.companyId)),
+    upsert: companyProcedure.input(z.object({ key: z.string(), value: z.string() })).mutation(async ({ ctx, input }) => { await db.upsertSetting(ctx.companyId, input.key, input.value); return { success: true }; }),
   }),
+
   // ─── Admin: User Management ──────────────────────────────────────────
   admin: router({
     users: adminProcedure.query(async () => db.getAllUsers()),
     updateRole: adminProcedure.input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) })).mutation(async ({ input }) => { await db.updateUserRole(input.userId, input.role); return { success: true }; }),
   }),
+
   // ─── Company (Multi-Tenant) ───────────────────────────────────────────
   company: router({
     list: protectedProcedure.query(async ({ ctx }) => db.getUserCompanies(ctx.user.id)),
@@ -377,6 +384,7 @@ export const appRouter = router({
     addMember: adminProcedure.input(z.object({ companyId: z.number(), userId: z.number(), role: z.string() })).mutation(async ({ input }) => { await db.addCompanyMember(input.companyId, input.userId, input.role); return { success: true }; }),
     removeMember: adminProcedure.input(z.object({ companyId: z.number(), userId: z.number() })).mutation(async ({ input }) => { await db.removeCompanyMember(input.companyId, input.userId); return { success: true }; }),
   }),
+
   // ─── Subscription & Trial ────────────────────────────────────────────
   subscription: router({
     get: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => db.getSubscription(input.companyId)),

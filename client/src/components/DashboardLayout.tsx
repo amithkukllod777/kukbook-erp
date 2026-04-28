@@ -27,12 +27,15 @@ import {
   LayoutDashboard, LogOut, PanelLeft, BookOpen, FileText,
   Users, Receipt, Building2, ShoppingCart, Package, ClipboardList,
   UserCheck, DollarSign, Warehouse, Link2, Truck, Settings,
-  Shield,  BarChart3, ChevronDown, RotateCcw, FileCheck,
+  Shield, BarChart3, ChevronDown, RotateCcw, FileCheck,
   ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp,
   FileSpreadsheet, IndianRupee, UsersRound, ScrollText, ArrowLeftRight,
-  FileBarChart, Palette, Barcode, Bell, MessageSquare, Building, Crown} from "lucide-react";
+  FileBarChart, Palette, Barcode, Bell, MessageSquare, Building, Crown,
+  ChevronsUpDown, Check
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useCompany } from "@/contexts/CompanyContext";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -151,6 +154,61 @@ const DEFAULT_WIDTH = 260;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
 
+function CompanySwitcher({ isCollapsed }: { isCollapsed: boolean }) {
+  const { companies, activeCompany, setActiveCompanyId } = useCompany();
+  const [open, setOpen] = useState(false);
+
+  if (companies.length === 0 || !activeCompany) return null;
+
+  if (isCollapsed) {
+    return (
+      <div className="flex justify-center px-2 py-1">
+        <div className="h-8 w-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary-foreground">
+          {activeCompany.name.charAt(0).toUpperCase()}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-2 pb-1">
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 w-full rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-accent/50 transition-colors focus:outline-none">
+            <div className="h-7 w-7 rounded-md bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary-foreground shrink-0">
+              {activeCompany.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate text-sidebar-accent-foreground">{activeCompany.name}</p>
+              {activeCompany.gstin && (
+                <p className="text-[10px] text-sidebar-foreground/50 truncate">{activeCompany.gstin}</p>
+              )}
+            </div>
+            <ChevronsUpDown className="h-3 w-3 text-sidebar-foreground/50 shrink-0" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          {companies.map(c => (
+            <DropdownMenuItem
+              key={c.id}
+              onClick={() => { setActiveCompanyId(c.id); setOpen(false); }}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {c.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="truncate flex-1 text-sm">{c.name}</span>
+                {c.id === activeCompany.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+              </div>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -258,7 +316,7 @@ function DashboardLayoutContent({
     <>
       <div className="relative" ref={sidebarRef}>
         <Sidebar collapsible="icon" className="border-r-0" disableTransition={isResizing}>
-          <SidebarHeader className="h-16 justify-center">
+          <SidebarHeader className="justify-center">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
@@ -273,6 +331,7 @@ function DashboardLayoutContent({
                 </span>
               )}
             </div>
+            <CompanySwitcher isCollapsed={isCollapsed} />
           </SidebarHeader>
 
           <SidebarContent className="gap-0 overflow-y-auto">

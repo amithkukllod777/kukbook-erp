@@ -176,7 +176,7 @@ vi.mock("./_core/notification", () => ({
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createUserContext(role: "admin" | "user" = "user"): TrpcContext {
+function createUserContext(role: "admin" | "user" = "user", companyId: number | null = 1): TrpcContext {
   const user: AuthenticatedUser = {
     id: 1,
     openId: "test-user",
@@ -190,6 +190,7 @@ function createUserContext(role: "admin" | "user" = "user"): TrpcContext {
   };
   return {
     user,
+    companyId,
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"],
   };
@@ -376,8 +377,8 @@ describe("Settings", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects non-admin setting upsert", async () => {
-    const caller = appRouter.createCaller(createUserContext("user"));
+  it("rejects upsert without company context", async () => {
+    const caller = appRouter.createCaller(createUserContext("user", null));
     await expect(caller.settings.upsert({ key: "currency", value: "USD" })).rejects.toThrow();
   });
 });
@@ -717,5 +718,77 @@ describe("subscription", () => {
     expect(data).toHaveProperty("isTrialActive", true);
     expect(data).toHaveProperty("daysLeft");
     expect(data.daysLeft).toBeGreaterThan(0);
+  });
+});
+
+describe("Cross-Company Data Isolation", () => {
+  it("rejects business operations without company context", async () => {
+    const callerNoCompany = appRouter.createCaller(createUserContext("user", null));
+    // All business procedures should reject when no companyId is set
+    await expect(callerNoCompany.accounts.list()).rejects.toThrow("No active company selected");
+    await expect(callerNoCompany.customers.list()).rejects.toThrow("No active company selected");
+    await expect(callerNoCompany.invoices.list()).rejects.toThrow("No active company selected");
+    await expect(callerNoCompany.vendors.list()).rejects.toThrow("No active company selected");
+    await expect(callerNoCompany.bills.list()).rejects.toThrow("No active company selected");
+    await expect(callerNoCompany.inventory.list()).rejects.toThrow("No active company selected");
+    await expect(callerNoCompany.employees.list()).rejects.toThrow("No active company selected");
+  });
+
+  it("passes companyId to db helpers for data isolation", async () => {
+    const db = await import("./db");
+    const callerCompany1 = appRouter.createCaller(createUserContext("user", 1));
+    const callerCompany2 = appRouter.createCaller(createUserContext("user", 2));
+
+    // Company 1 queries
+    await callerCompany1.accounts.list();
+    expect(db.getAllAccounts).toHaveBeenCalledWith(1);
+
+    await callerCompany1.customers.list();
+    expect(db.getAllCustomers).toHaveBeenCalledWith(1);
+
+    // Company 2 queries — different companyId passed
+    await callerCompany2.accounts.list();
+    expect(db.getAllAccounts).toHaveBeenCalledWith(2);
+
+    await callerCompany2.customers.list();
+    expect(db.getAllCustomers).toHaveBeenCalledWith(2);
+  });
+
+  it("isolates create operations by companyId", async () => {
+    const db = await import("./db");
+    const callerCompany1 = appRouter.createCaller(createUserContext("user", 1));
+    const callerCompany2 = appRouter.createCaller(createUserContext("user", 2));
+
+    await callerCompany1.customers.create({ name: "Customer A", email: "a@test.com" });
+    expect(db.createCustomer).toHaveBeenCalledWith(1, expect.objectContaining({ name: "Customer A" }));
+
+    await callerCompany2.customers.create({ name: "Customer B", email: "b@test.com" });
+    expect(db.createCustomer).toHaveBeenCalledWith(2, expect.objectContaining({ name: "Customer B" }));
+  });
+
+  it("isolates delete operations by companyId", async () => {
+    const db = await import("./db");
+    const callerCompany1 = appRouter.createCaller(createUserContext("user", 1));
+    const callerCompany2 = appRouter.createCaller(createUserContext("user", 2));
+
+    await callerCompany1.customers.delete({ id: 1 });
+    expect(db.deleteCustomer).toHaveBeenCalledWith(1, 1);
+
+    await callerCompany2.customers.delete({ id: 2 });
+    expect(db.deleteCustomer).toHaveBeenCalledWith(2, 2);
+  });
+
+  it("isolates dashboard data by companyId", async () => {
+    const db = await import("./db");
+    const callerCompany1 = appRouter.createCaller(createUserContext("user", 1));
+    await callerCompany1.dashboard.getData();
+    expect(db.getDashboardData).toHaveBeenCalledWith(1);
+  });
+
+  it("isolates reports by companyId", async () => {
+    const db = await import("./db");
+    const callerCompany1 = appRouter.createCaller(createUserContext("user", 1));
+    await callerCompany1.gst.summary();
+    expect(db.getGSTSummary).toHaveBeenCalledWith(1);
   });
 });

@@ -1,0 +1,25 @@
+ALTER TABLE `accounts` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `bills` ADD `bill_companyId` int;--> statement-breakpoint
+ALTER TABLE `cash_bank_accounts` ADD `cb_companyId` int;--> statement-breakpoint
+ALTER TABLE `customers` ADD `cust_companyId` int;--> statement-breakpoint
+ALTER TABLE `deliveries` ADD `del_companyId` int;--> statement-breakpoint
+ALTER TABLE `delivery_challans` ADD `dc_companyId` int;--> statement-breakpoint
+ALTER TABLE `delivery_staff` ADD `ds_companyId` int;--> statement-breakpoint
+ALTER TABLE `employees` ADD `emp_companyId` int;--> statement-breakpoint
+ALTER TABLE `estimates` ADD `est_companyId` int;--> statement-breakpoint
+ALTER TABLE `expenses` ADD `exp_companyId` int;--> statement-breakpoint
+ALTER TABLE `inventory` ADD `inv_item_companyId` int;--> statement-breakpoint
+ALTER TABLE `invoices` ADD `inv_companyId` int;--> statement-breakpoint
+ALTER TABLE `journal_entries` ADD `je_companyId` int;--> statement-breakpoint
+ALTER TABLE `other_income` ADD `oi_companyId` int;--> statement-breakpoint
+ALTER TABLE `party_groups` ADD `pg_companyId` int;--> statement-breakpoint
+ALTER TABLE `payments_in` ADD `pi_companyId` int;--> statement-breakpoint
+ALTER TABLE `payments_out` ADD `pout_companyId` int;--> statement-breakpoint
+ALTER TABLE `payroll_runs` ADD `pr_companyId` int;--> statement-breakpoint
+ALTER TABLE `purchase_orders` ADD `po_companyId` int;--> statement-breakpoint
+ALTER TABLE `purchase_returns` ADD `pret_companyId` int;--> statement-breakpoint
+ALTER TABLE `sale_returns` ADD `sr_companyId` int;--> statement-breakpoint
+ALTER TABLE `settings` ADD `set_companyId` int;--> statement-breakpoint
+ALTER TABLE `supply_chain_orders` ADD `sc_companyId` int;--> statement-breakpoint
+ALTER TABLE `vendors` ADD `vend_companyId` int;--> statement-breakpoint
+ALTER TABLE `warehouses` ADD `wh_companyId` int;

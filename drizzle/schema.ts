@@ -19,6 +19,7 @@ export type InsertUser = typeof users.$inferInsert;
 // ─── Chart of Accounts ──────────────────────────────────────────────────────
 export const accounts = mysqlTable("accounts", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId"),
   code: varchar("code", { length: 20 }).notNull(),
   name: varchar("name", { length: 200 }).notNull(),
   type: mysqlEnum("type", ["Asset", "Liability", "Equity", "Revenue", "Expense"]).notNull(),
@@ -34,6 +35,7 @@ export type InsertAccount = typeof accounts.$inferInsert;
 // ─── Journal Entries ────────────────────────────────────────────────────────
 export const journalEntries = mysqlTable("journal_entries", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("je_companyId"),
   entryId: varchar("entryId", { length: 20 }).notNull().unique(),
   date: varchar("date", { length: 10 }).notNull(),
   description: text("description"),
@@ -57,6 +59,7 @@ export type JournalLine = typeof journalLines.$inferSelect;
 // ─── Customers ──────────────────────────────────────────────────────────────
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("cust_companyId"),
   name: varchar("name", { length: 200 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 50 }),
@@ -72,6 +75,7 @@ export type Customer = typeof customers.$inferSelect;
 // ─── Invoices ───────────────────────────────────────────────────────────────
 export const invoices = mysqlTable("invoices", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("inv_companyId"),
   invoiceId: varchar("invoiceId", { length: 20 }).notNull().unique(),
   customerId: int("customerId").notNull(),
   customerName: varchar("customerName", { length: 200 }).notNull(),
@@ -100,6 +104,7 @@ export type InvoiceLine = typeof invoiceLines.$inferSelect;
 // ─── Vendors ────────────────────────────────────────────────────────────────
 export const vendors = mysqlTable("vendors", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("vend_companyId"),
   name: varchar("name", { length: 200 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 50 }),
@@ -115,6 +120,7 @@ export type Vendor = typeof vendors.$inferSelect;
 // ─── Bills ──────────────────────────────────────────────────────────────────
 export const bills = mysqlTable("bills", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("bill_companyId"),
   billId: varchar("billId", { length: 20 }).notNull().unique(),
   vendorId: int("vendorId").notNull(),
   vendorName: varchar("vendorName", { length: 200 }).notNull(),
@@ -132,6 +138,7 @@ export type Bill = typeof bills.$inferSelect;
 // ─── Inventory ──────────────────────────────────────────────────────────────
 export const inventory = mysqlTable("inventory", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("inv_item_companyId"),
   sku: varchar("sku", { length: 50 }).notNull(),
   name: varchar("name", { length: 200 }).notNull(),
   category: varchar("category", { length: 100 }),
@@ -150,6 +157,7 @@ export type InventoryItem = typeof inventory.$inferSelect;
 // ─── Purchase Orders ────────────────────────────────────────────────────────
 export const purchaseOrders = mysqlTable("purchase_orders", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("po_companyId"),
   poId: varchar("poId", { length: 20 }).notNull().unique(),
   vendorId: int("vendorId").notNull(),
   vendorName: varchar("vendorName", { length: 200 }).notNull(),
@@ -167,6 +175,7 @@ export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 // ─── Employees ──────────────────────────────────────────────────────────────
 export const employees = mysqlTable("employees", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("emp_companyId"),
   empId: varchar("empId", { length: 20 }).notNull().unique(),
   name: varchar("name", { length: 200 }).notNull(),
   title: varchar("title", { length: 200 }),
@@ -186,6 +195,7 @@ export type Employee = typeof employees.$inferSelect;
 // ─── Payroll Runs ───────────────────────────────────────────────────────────
 export const payrollRuns = mysqlTable("payroll_runs", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("pr_companyId"),
   payrollId: varchar("payrollId", { length: 20 }).notNull().unique(),
   period: varchar("period", { length: 50 }).notNull(),
   runDate: varchar("runDate", { length: 10 }).notNull(),
@@ -203,6 +213,7 @@ export type PayrollRun = typeof payrollRuns.$inferSelect;
 // ─── Warehouses ─────────────────────────────────────────────────────────────
 export const warehouses = mysqlTable("warehouses", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("wh_companyId"),
   name: varchar("name", { length: 200 }).notNull(),
   location: varchar("location", { length: 300 }),
   capacity: int("capacity").default(0),
@@ -216,6 +227,7 @@ export type Warehouse = typeof warehouses.$inferSelect;
 // ─── Supply Chain Orders ────────────────────────────────────────────────────
 export const supplyChainOrders = mysqlTable("supply_chain_orders", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("sc_companyId"),
   orderId: varchar("orderId", { length: 20 }).notNull().unique(),
   supplierName: varchar("supplierName", { length: 200 }).notNull(),
   itemName: varchar("itemName", { length: 200 }).notNull(),
@@ -232,6 +244,7 @@ export type SupplyChainOrder = typeof supplyChainOrders.$inferSelect;
 // ─── Delivery Staff ─────────────────────────────────────────────────────────
 export const deliveryStaff = mysqlTable("delivery_staff", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("ds_companyId"),
   staffId: varchar("staffId", { length: 20 }).notNull().unique(),
   name: varchar("name", { length: 200 }).notNull(),
   phone: varchar("phone", { length: 50 }),
@@ -248,6 +261,7 @@ export type DeliveryStaffMember = typeof deliveryStaff.$inferSelect;
 // ─── Deliveries ─────────────────────────────────────────────────────────────
 export const deliveries = mysqlTable("deliveries", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("del_companyId"),
   deliveryId: varchar("deliveryId", { length: 20 }).notNull().unique(),
   staffId: int("staffId"),
   staffName: varchar("staffName", { length: 200 }),
@@ -264,6 +278,7 @@ export type Delivery = typeof deliveries.$inferSelect;
 // ─── Settings ───────────────────────────────────────────────────────────────
 export const settings = mysqlTable("settings", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("set_companyId"),
   key: varchar("setting_key", { length: 100 }).notNull().unique(),
   value: text("setting_value"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -274,6 +289,7 @@ export type Setting = typeof settings.$inferSelect;
 // ─── Sale Returns (Credit Notes) ───────────────────────────────────────────
 export const saleReturns = mysqlTable("sale_returns", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("sr_companyId"),
   returnId: varchar("returnId", { length: 20 }).notNull().unique(),
   customerId: int("customerId").notNull(),
   customerName: varchar("sr_customerName", { length: 200 }).notNull(),
@@ -289,6 +305,7 @@ export type SaleReturn = typeof saleReturns.$inferSelect;
 // ─── Purchase Returns (Debit Notes) ────────────────────────────────────────
 export const purchaseReturns = mysqlTable("purchase_returns", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("pret_companyId"),
   returnId: varchar("pr_returnId", { length: 20 }).notNull().unique(),
   vendorId: int("pr_vendorId").notNull(),
   vendorName: varchar("pr_vendorName", { length: 200 }).notNull(),
@@ -304,6 +321,7 @@ export type PurchaseReturn = typeof purchaseReturns.$inferSelect;
 // ─── Estimates / Quotations ────────────────────────────────────────────────
 export const estimates = mysqlTable("estimates", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("est_companyId"),
   estimateId: varchar("estimateId", { length: 20 }).notNull().unique(),
   customerId: int("est_customerId").notNull(),
   customerName: varchar("est_customerName", { length: 200 }).notNull(),
@@ -332,6 +350,7 @@ export type EstimateLine = typeof estimateLines.$inferSelect;
 // ─── Payments In (Receipts from Customers) ─────────────────────────────────
 export const paymentsIn = mysqlTable("payments_in", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("pi_companyId"),
   paymentId: varchar("pi_paymentId", { length: 20 }).notNull().unique(),
   customerId: int("pi_customerId").notNull(),
   customerName: varchar("pi_customerName", { length: 200 }).notNull(),
@@ -348,6 +367,7 @@ export type PaymentIn = typeof paymentsIn.$inferSelect;
 // ─── Payments Out (Payments to Vendors) ────────────────────────────────────
 export const paymentsOut = mysqlTable("payments_out", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("pout_companyId"),
   paymentId: varchar("po_paymentId", { length: 20 }).notNull().unique(),
   vendorId: int("po_vendorId").notNull(),
   vendorName: varchar("po_vendorName", { length: 200 }).notNull(),
@@ -364,6 +384,7 @@ export type PaymentOut = typeof paymentsOut.$inferSelect;
 // ─── Cash & Bank Accounts ──────────────────────────────────────────────────
 export const cashBankAccounts = mysqlTable("cash_bank_accounts", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("cb_companyId"),
   name: varchar("cb_name", { length: 200 }).notNull(),
   type: mysqlEnum("cb_type", ["Cash", "Bank", "UPI", "Wallet"]).default("Cash").notNull(),
   bankName: varchar("bankName", { length: 200 }),
@@ -378,6 +399,7 @@ export type CashBankAccount = typeof cashBankAccounts.$inferSelect;
 // ─── Expenses ──────────────────────────────────────────────────────────────
 export const expenses = mysqlTable("expenses", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("exp_companyId"),
   expenseId: varchar("expenseId", { length: 20 }).notNull().unique(),
   date: varchar("exp_date", { length: 10 }).notNull(),
   category: varchar("exp_category", { length: 100 }).notNull(),
@@ -394,6 +416,7 @@ export type Expense = typeof expenses.$inferSelect;
 // ─── Other Income ──────────────────────────────────────────────────────────
 export const otherIncome = mysqlTable("other_income", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("oi_companyId"),
   incomeId: varchar("incomeId", { length: 20 }).notNull().unique(),
   date: varchar("oi_date", { length: 10 }).notNull(),
   category: varchar("oi_category", { length: 100 }).notNull(),
@@ -408,6 +431,7 @@ export type OtherIncomeEntry = typeof otherIncome.$inferSelect;
 // ─── Delivery Challans ────────────────────────────────────────────────────
 export const deliveryChallans = mysqlTable("delivery_challans", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("dc_companyId"),
   challanId: varchar("challanId", { length: 20 }).notNull().unique(),
   customerId: int("dc_customerId").notNull(),
   customerName: varchar("dc_customerName", { length: 200 }).notNull(),
@@ -426,6 +450,7 @@ export type DeliveryChallan = typeof deliveryChallans.$inferSelect;
 // ─── Party Groups ─────────────────────────────────────────────────────────
 export const partyGroups = mysqlTable("party_groups", {
   id: int("id").autoincrement().primaryKey(),
+  companyId: int("pg_companyId"),
   name: varchar("pg_name", { length: 200 }).notNull(),
   type: mysqlEnum("pg_type", ["Customer", "Vendor"]).notNull(),
   description: text("pg_description"),

@@ -65,331 +65,332 @@ export async function updateUserRole(userId: number, role: "user" | "admin") {
 }
 
 // ─── Accounts ────────────────────────────────────────────────────────────────
-export async function getAllAccounts() {
+export async function getAllAccounts(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(accounts).orderBy(asc(accounts.code));
+  return db.select().from(accounts).where(eq(accounts.companyId, companyId)).orderBy(asc(accounts.code));
 }
 
-export async function createAccount(data: { code: string; name: string; type: string; subtype?: string; balance?: string }) {
+export async function createAccount(companyId: number, data: { code: string; name: string; type: string; subtype?: string; balance?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(accounts).values(data as any);
+  await db.insert(accounts).values({ ...data, companyId } as any);
 }
 
-export async function updateAccount(id: number, data: Partial<{ code: string; name: string; type: string; subtype: string; balance: string }>) {
+export async function updateAccount(id: number, companyId: number, data: Partial<{ code: string; name: string; type: string; subtype: string; balance: string }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(accounts).set(data as any).where(eq(accounts.id, id));
+  await db.update(accounts).set(data as any).where(and(eq(accounts.id, id), eq(accounts.companyId, companyId)));
 }
 
-export async function deleteAccount(id: number) {
+export async function deleteAccount(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(accounts).where(eq(accounts.id, id));
+  await db.delete(accounts).where(and(eq(accounts.id, id), eq(accounts.companyId, companyId)));
 }
 
 // ─── Journal Entries ─────────────────────────────────────────────────────────
-export async function getAllJournalEntries() {
+export async function getAllJournalEntries(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  const entries = await db.select().from(journalEntries).orderBy(desc(journalEntries.date));
+  const entries = await db.select().from(journalEntries).where(eq(journalEntries.companyId, companyId)).orderBy(desc(journalEntries.date));
   const lines = await db.select().from(journalLines);
   return entries.map(e => ({ ...e, lines: lines.filter(l => l.journalEntryId === e.id) }));
 }
 
-export async function createJournalEntry(data: { entryId: string; date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
+export async function createJournalEntry(companyId: number, data: { entryId: string; date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
   const db = await getDb(); if (!db) return;
-  const [result] = await db.insert(journalEntries).values({ entryId: data.entryId, date: data.date, description: data.description, posted: data.posted }).$returningId();
+  const [result] = await db.insert(journalEntries).values({ entryId: data.entryId, date: data.date, description: data.description, posted: data.posted, companyId }).$returningId();
   if (data.lines.length > 0) {
     await db.insert(journalLines).values(data.lines.map(l => ({ journalEntryId: result.id, account: l.account, debit: l.debit, credit: l.credit })));
   }
 }
 
-export async function updateJournalEntry(id: number, data: { date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
+export async function updateJournalEntry(id: number, companyId: number, data: { date: string; description: string; posted: boolean; lines: { account: string; debit: string; credit: string }[] }) {
   const db = await getDb(); if (!db) return;
-  await db.update(journalEntries).set({ date: data.date, description: data.description, posted: data.posted }).where(eq(journalEntries.id, id));
+  await db.update(journalEntries).set({ date: data.date, description: data.description, posted: data.posted }).where(and(eq(journalEntries.id, id), eq(journalEntries.companyId, companyId)));
   await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
   if (data.lines.length > 0) {
     await db.insert(journalLines).values(data.lines.map(l => ({ journalEntryId: id, account: l.account, debit: l.debit, credit: l.credit })));
   }
 }
 
-export async function deleteJournalEntry(id: number) {
+export async function deleteJournalEntry(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
-  await db.delete(journalEntries).where(eq(journalEntries.id, id));
+  await db.delete(journalEntries).where(and(eq(journalEntries.id, id), eq(journalEntries.companyId, companyId)));
 }
 
 // ─── Customers ───────────────────────────────────────────────────────────────
-export async function getAllCustomers() {
+export async function getAllCustomers(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(customers).orderBy(asc(customers.name));
+  return db.select().from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name));
 }
 
-export async function createCustomer(data: { name: string; email?: string; phone?: string; city?: string; address?: string; balance?: string }) {
+export async function createCustomer(companyId: number, data: { name: string; email?: string; phone?: string; city?: string; address?: string; balance?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(customers).values(data as any);
+  await db.insert(customers).values({ ...data, companyId } as any);
 }
 
-export async function updateCustomer(id: number, data: Partial<{ name: string; email: string; phone: string; city: string; address: string; balance: string }>) {
+export async function updateCustomer(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; city: string; address: string; balance: string }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(customers).set(data as any).where(eq(customers.id, id));
+  await db.update(customers).set(data as any).where(and(eq(customers.id, id), eq(customers.companyId, companyId)));
 }
 
-export async function deleteCustomer(id: number) {
+export async function deleteCustomer(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(customers).where(eq(customers.id, id));
+  await db.delete(customers).where(and(eq(customers.id, id), eq(customers.companyId, companyId)));
 }
 
 // ─── Invoices ────────────────────────────────────────────────────────────────
-export async function getAllInvoices() {
+export async function getAllInvoices(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  const invs = await db.select().from(invoices).orderBy(desc(invoices.date));
+  const invs = await db.select().from(invoices).where(eq(invoices.companyId, companyId)).orderBy(desc(invoices.date));
   const lines = await db.select().from(invoiceLines);
   return invs.map(i => ({ ...i, lines: lines.filter(l => l.invoiceId === i.id) }));
 }
 
-export async function createInvoice(data: { invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string; total: string; lines: { description: string; qty: number; rate: string; discount?: string; amount: string }[] }) {
+export async function createInvoice(companyId: number, data: { invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string; total: string; lines: { description: string; qty: number; rate: string; discount?: string; amount: string }[] }) {
   const db = await getDb(); if (!db) return;
-  const [result] = await db.insert(invoices).values({ invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName, date: data.date, dueDate: data.dueDate, status: data.status as any, total: data.total }).$returningId();
+  const [result] = await db.insert(invoices).values({ invoiceId: data.invoiceId, customerId: data.customerId, customerName: data.customerName, date: data.date, dueDate: data.dueDate, status: data.status as any, total: data.total, companyId }).$returningId();
   if (data.lines.length > 0) {
     await db.insert(invoiceLines).values(data.lines.map(l => ({ invoiceId: result.id, description: l.description, qty: l.qty, rate: l.rate, discount: l.discount || '0', amount: l.amount })));
   }
 }
 
-export async function updateInvoiceStatus(id: number, status: string) {
+export async function updateInvoiceStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(invoices).set({ status: status as any }).where(eq(invoices.id, id));
+  await db.update(invoices).set({ status: status as any }).where(and(eq(invoices.id, id), eq(invoices.companyId, companyId)));
 }
 
-export async function deleteInvoice(id: number) {
+export async function deleteInvoice(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(invoiceLines).where(eq(invoiceLines.invoiceId, id));
-  await db.delete(invoices).where(eq(invoices.id, id));
+  await db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.companyId, companyId)));
 }
 
 // ─── Vendors ─────────────────────────────────────────────────────────────────
-export async function getAllVendors() {
+export async function getAllVendors(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(vendors).orderBy(asc(vendors.name));
+  return db.select().from(vendors).where(eq(vendors.companyId, companyId)).orderBy(asc(vendors.name));
 }
 
-export async function createVendor(data: { name: string; email?: string; phone?: string; category?: string; address?: string; balance?: string }) {
+export async function createVendor(companyId: number, data: { name: string; email?: string; phone?: string; category?: string; address?: string; balance?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(vendors).values(data as any);
+  await db.insert(vendors).values({ ...data, companyId } as any);
 }
 
-export async function updateVendor(id: number, data: Partial<{ name: string; email: string; phone: string; category: string; address: string; balance: string }>) {
+export async function updateVendor(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; category: string; address: string; balance: string }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(vendors).set(data as any).where(eq(vendors.id, id));
+  await db.update(vendors).set(data as any).where(and(eq(vendors.id, id), eq(vendors.companyId, companyId)));
 }
 
-export async function deleteVendor(id: number) {
+export async function deleteVendor(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(vendors).where(eq(vendors.id, id));
+  await db.delete(vendors).where(and(eq(vendors.id, id), eq(vendors.companyId, companyId)));
 }
 
 // ─── Bills ───────────────────────────────────────────────────────────────────
-export async function getAllBills() {
+export async function getAllBills(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(bills).orderBy(desc(bills.date));
+  return db.select().from(bills).where(eq(bills.companyId, companyId)).orderBy(desc(bills.date));
 }
 
-export async function createBill(data: { billId: string; vendorId: number; vendorName: string; date: string; dueDate: string; amount: string; description?: string }) {
+export async function createBill(companyId: number, data: { billId: string; vendorId: number; vendorName: string; date: string; dueDate: string; amount: string; description?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(bills).values(data as any);
+  await db.insert(bills).values({ ...data, companyId } as any);
 }
 
-export async function updateBillStatus(id: number, status: string) {
+export async function updateBillStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(bills).set({ status: status as any }).where(eq(bills.id, id));
+  await db.update(bills).set({ status: status as any }).where(and(eq(bills.id, id), eq(bills.companyId, companyId)));
 }
 
-export async function deleteBill(id: number) {
+export async function deleteBill(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(bills).where(eq(bills.id, id));
+  await db.delete(bills).where(and(eq(bills.id, id), eq(bills.companyId, companyId)));
 }
 
 // ─── Inventory ───────────────────────────────────────────────────────────────
-export async function getAllInventory() {
+export async function getAllInventory(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(inventory).orderBy(asc(inventory.name));
+  return db.select().from(inventory).where(eq(inventory.companyId, companyId)).orderBy(asc(inventory.name));
 }
 
-export async function createInventoryItem(data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number; hsnCode?: string; gstRate?: string }) {
+export async function createInventoryItem(companyId: number, data: { sku: string; name: string; category?: string; qty: number; cost: string; reorder: number; warehouseId?: number; hsnCode?: string; gstRate?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(inventory).values(data as any);
+  await db.insert(inventory).values({ ...data, companyId } as any);
 }
 
-export async function updateInventoryItem(id: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number; hsnCode: string; gstRate: string }>) {
+export async function updateInventoryItem(id: number, companyId: number, data: Partial<{ sku: string; name: string; category: string; qty: number; cost: string; reorder: number; warehouseId: number; hsnCode: string; gstRate: string }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(inventory).set(data as any).where(eq(inventory.id, id));
+  await db.update(inventory).set(data as any).where(and(eq(inventory.id, id), eq(inventory.companyId, companyId)));
 }
 
-export async function deleteInventoryItem(id: number) {
+export async function deleteInventoryItem(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(inventory).where(eq(inventory.id, id));
+  await db.delete(inventory).where(and(eq(inventory.id, id), eq(inventory.companyId, companyId)));
 }
 
 // ─── Purchase Orders ─────────────────────────────────────────────────────────
-export async function getAllPurchaseOrders() {
+export async function getAllPurchaseOrders(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.date));
+  return db.select().from(purchaseOrders).where(eq(purchaseOrders.companyId, companyId)).orderBy(desc(purchaseOrders.date));
 }
 
-export async function createPurchaseOrder(data: { poId: string; vendorId: number; vendorName: string; date: string; expectedDate?: string; total: string; description?: string }) {
+export async function createPurchaseOrder(companyId: number, data: { poId: string; vendorId: number; vendorName: string; date: string; expectedDate?: string; total: string; description?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(purchaseOrders).values(data as any);
+  await db.insert(purchaseOrders).values({ ...data, companyId } as any);
 }
 
-export async function updatePOStatus(id: number, status: string) {
+export async function updatePOStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(purchaseOrders).set({ status: status as any }).where(eq(purchaseOrders.id, id));
+  await db.update(purchaseOrders).set({ status: status as any }).where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.companyId, companyId)));
 }
 
-export async function deletePurchaseOrder(id: number) {
+export async function deletePurchaseOrder(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
+  await db.delete(purchaseOrders).where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.companyId, companyId)));
 }
 
 // ─── Employees ───────────────────────────────────────────────────────────────
-export async function getAllEmployees() {
+export async function getAllEmployees(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(employees).orderBy(asc(employees.name));
+  return db.select().from(employees).where(eq(employees.companyId, companyId)).orderBy(asc(employees.name));
 }
 
-export async function createEmployee(data: { empId: string; name: string; title?: string; dept?: string; type: string; salary: string; rate: string; email?: string; startDate?: string; active: boolean }) {
+export async function createEmployee(companyId: number, data: { empId: string; name: string; title?: string; dept?: string; type: string; salary: string; rate: string; email?: string; startDate?: string; active: boolean }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(employees).values(data as any);
+  await db.insert(employees).values({ ...data, companyId } as any);
 }
 
-export async function updateEmployee(id: number, data: Partial<{ name: string; title: string; dept: string; type: string; salary: string; rate: string; email: string; startDate: string; active: boolean }>) {
+export async function updateEmployee(id: number, companyId: number, data: Partial<{ name: string; title: string; dept: string; type: string; salary: string; rate: string; email: string; startDate: string; active: boolean }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(employees).set(data as any).where(eq(employees.id, id));
+  await db.update(employees).set(data as any).where(and(eq(employees.id, id), eq(employees.companyId, companyId)));
 }
 
-export async function deleteEmployee(id: number) {
+export async function deleteEmployee(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(employees).where(eq(employees.id, id));
+  await db.delete(employees).where(and(eq(employees.id, id), eq(employees.companyId, companyId)));
 }
 
 // ─── Payroll ─────────────────────────────────────────────────────────────────
-export async function getAllPayrollRuns() {
+export async function getAllPayrollRuns(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(payrollRuns).orderBy(desc(payrollRuns.runDate));
+  return db.select().from(payrollRuns).where(eq(payrollRuns.companyId, companyId)).orderBy(desc(payrollRuns.runDate));
 }
 
-export async function createPayrollRun(data: { payrollId: string; period: string; runDate: string; gross: string; fedTax: string; stateTax: string; ssMed: string; net: string }) {
+export async function createPayrollRun(companyId: number, data: { payrollId: string; period: string; runDate: string; gross: string; fedTax: string; stateTax: string; ssMed: string; net: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(payrollRuns).values(data as any);
+  await db.insert(payrollRuns).values({ ...data, companyId } as any);
 }
 
 // ─── Warehouses ──────────────────────────────────────────────────────────────
-export async function getAllWarehouses() {
+export async function getAllWarehouses(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(warehouses).orderBy(asc(warehouses.name));
+  return db.select().from(warehouses).where(eq(warehouses.companyId, companyId)).orderBy(asc(warehouses.name));
 }
 
-export async function createWarehouse(data: { name: string; location?: string; capacity?: number; manager?: string }) {
+export async function createWarehouse(companyId: number, data: { name: string; location?: string; capacity?: number; manager?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(warehouses).values(data as any);
+  await db.insert(warehouses).values({ ...data, companyId } as any);
 }
 
-export async function updateWarehouse(id: number, data: Partial<{ name: string; location: string; capacity: number; manager: string }>) {
+export async function updateWarehouse(id: number, companyId: number, data: Partial<{ name: string; location: string; capacity: number; manager: string }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(warehouses).set(data as any).where(eq(warehouses.id, id));
+  await db.update(warehouses).set(data as any).where(and(eq(warehouses.id, id), eq(warehouses.companyId, companyId)));
 }
 
-export async function deleteWarehouse(id: number) {
+export async function deleteWarehouse(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(warehouses).where(eq(warehouses.id, id));
+  await db.delete(warehouses).where(and(eq(warehouses.id, id), eq(warehouses.companyId, companyId)));
 }
 
 // ─── Supply Chain ────────────────────────────────────────────────────────────
-export async function getAllSupplyChainOrders() {
+export async function getAllSupplyChainOrders(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(supplyChainOrders).orderBy(desc(supplyChainOrders.orderDate));
+  return db.select().from(supplyChainOrders).where(eq(supplyChainOrders.companyId, companyId)).orderBy(desc(supplyChainOrders.orderDate));
 }
 
-export async function createSupplyChainOrder(data: { orderId: string; supplierName: string; itemName: string; qty: number; orderDate: string; expectedDate?: string }) {
+export async function createSupplyChainOrder(companyId: number, data: { orderId: string; supplierName: string; itemName: string; qty: number; orderDate: string; expectedDate?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(supplyChainOrders).values(data as any);
+  await db.insert(supplyChainOrders).values({ ...data, companyId } as any);
 }
 
-export async function updateSCOrderStatus(id: number, status: string) {
+export async function updateSCOrderStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(supplyChainOrders).set({ status: status as any }).where(eq(supplyChainOrders.id, id));
+  await db.update(supplyChainOrders).set({ status: status as any }).where(and(eq(supplyChainOrders.id, id), eq(supplyChainOrders.companyId, companyId)));
 }
 
-export async function deleteSCOrder(id: number) {
+export async function deleteSCOrder(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(supplyChainOrders).where(eq(supplyChainOrders.id, id));
+  await db.delete(supplyChainOrders).where(and(eq(supplyChainOrders.id, id), eq(supplyChainOrders.companyId, companyId)));
 }
 
 // ─── Delivery Staff ──────────────────────────────────────────────────────────
-export async function getAllDeliveryStaff() {
+export async function getAllDeliveryStaff(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(deliveryStaff).orderBy(asc(deliveryStaff.name));
+  return db.select().from(deliveryStaff).where(eq(deliveryStaff.companyId, companyId)).orderBy(asc(deliveryStaff.name));
 }
 
-export async function createDeliveryStaffMember(data: { staffId: string; name: string; phone?: string; email?: string; vehicleType?: string; vehicleNumber?: string }) {
+export async function createDeliveryStaffMember(companyId: number, data: { staffId: string; name: string; phone?: string; email?: string; vehicleType?: string; vehicleNumber?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(deliveryStaff).values(data as any);
+  await db.insert(deliveryStaff).values({ ...data, companyId } as any);
 }
 
-export async function updateDeliveryStaffMember(id: number, data: Partial<{ name: string; phone: string; email: string; vehicleType: string; vehicleNumber: string; active: boolean }>) {
+export async function updateDeliveryStaffMember(id: number, companyId: number, data: Partial<{ name: string; phone: string; email: string; vehicleType: string; vehicleNumber: string; active: boolean }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(deliveryStaff).set(data as any).where(eq(deliveryStaff.id, id));
+  await db.update(deliveryStaff).set(data as any).where(and(eq(deliveryStaff.id, id), eq(deliveryStaff.companyId, companyId)));
 }
 
-export async function deleteDeliveryStaffMember(id: number) {
+export async function deleteDeliveryStaffMember(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(deliveryStaff).where(eq(deliveryStaff.id, id));
+  await db.delete(deliveryStaff).where(and(eq(deliveryStaff.id, id), eq(deliveryStaff.companyId, companyId)));
 }
 
 // ─── Deliveries ──────────────────────────────────────────────────────────────
-export async function getAllDeliveries() {
+export async function getAllDeliveries(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(deliveries).orderBy(desc(deliveries.createdAt));
+  return db.select().from(deliveries).where(eq(deliveries.companyId, companyId)).orderBy(desc(deliveries.createdAt));
 }
 
-export async function createDelivery(data: { deliveryId: string; staffId?: number; staffName?: string; customerName: string; address?: string; invoiceId?: string }) {
+export async function createDelivery(companyId: number, data: { deliveryId: string; staffId?: number; staffName?: string; customerName: string; address?: string; invoiceId?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(deliveries).values(data as any);
+  await db.insert(deliveries).values({ ...data, companyId } as any);
 }
 
-export async function updateDeliveryStatus(id: number, status: string) {
+export async function updateDeliveryStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(deliveries).set({ status: status as any }).where(eq(deliveries.id, id));
+  await db.update(deliveries).set({ status: status as any }).where(and(eq(deliveries.id, id), eq(deliveries.companyId, companyId)));
 }
 
-export async function assignDelivery(id: number, staffId: number, staffName: string) {
+export async function assignDelivery(id: number, companyId: number, staffId: number, staffName: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(deliveries).set({ staffId, staffName, status: "Assigned" as any }).where(eq(deliveries.id, id));
+  await db.update(deliveries).set({ staffId, staffName, status: "Assigned" as any }).where(and(eq(deliveries.id, id), eq(deliveries.companyId, companyId)));
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
-export async function getAllSettings() {
+export async function getAllSettings(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(settings);
+  return db.select().from(settings).where(eq(settings.companyId, companyId));
 }
 
-export async function upsertSetting(key: string, value: string) {
+export async function upsertSetting(companyId: number, key: string, value: string) {
   const db = await getDb(); if (!db) return;
-  const existing = await db.select().from(settings).where(eq(settings.key, key)).limit(1);
+  const existing = await db.select().from(settings).where(and(eq(settings.key, key), eq(settings.companyId, companyId))).limit(1);
   if (existing.length > 0) {
-    await db.update(settings).set({ value }).where(eq(settings.key, key));
+    await db.update(settings).set({ value }).where(and(eq(settings.key, key), eq(settings.companyId, companyId)));
   } else {
-    await db.insert(settings).values({ key, value });
+    await db.insert(settings).values({ key, value, companyId } as any);
   }
 }
 
 // ─── Dashboard Aggregates ────────────────────────────────────────────────────
-export async function getDashboardData() {
+export async function getDashboardData(companyId: number) {
   const db = await getDb(); if (!db) return null;
-  const accts = await db.select().from(accounts);
-  const invs = await db.select().from(invoices);
-  const bls = await db.select().from(bills);
-  const inv = await db.select().from(inventory);
-  const jes = await db.select().from(journalEntries).orderBy(desc(journalEntries.date)).limit(5);
+  const accts = await db.select().from(accounts).where(eq(accounts.companyId, companyId));
+  const invs = await db.select().from(invoices).where(eq(invoices.companyId, companyId));
+  const bls = await db.select().from(bills).where(eq(bills.companyId, companyId));
+  const inv = await db.select().from(inventory).where(eq(inventory.companyId, companyId));
+  const jes = await db.select().from(journalEntries).where(eq(journalEntries.companyId, companyId));
+  const sortedJes = jes.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const jeLines = await db.select().from(journalLines);
-  const recentJEs = jes.map(e => ({ ...e, lines: jeLines.filter(l => l.journalEntryId === e.id) }));
+  const recentJEs = sortedJes.map(e => ({ ...e, lines: jeLines.filter(l => l.journalEntryId === e.id) }));
 
   const totalRevenue = accts.filter(a => a.type === 'Revenue').reduce((s, a) => s + Number(a.balance), 0);
   const totalExpenses = accts.filter(a => a.type === 'Expense').reduce((s, a) => s + Number(a.balance), 0);
@@ -431,169 +432,169 @@ export async function getNextId(table: string, prefix: string) {
 }
 
 // ─── Sale Returns ───────────────────────────────────────────────────────────
-export async function getAllSaleReturns() {
+export async function getAllSaleReturns(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(saleReturns).orderBy(desc(saleReturns.createdAt));
+  return db.select().from(saleReturns).where(eq(saleReturns.companyId, companyId)).orderBy(desc(saleReturns.createdAt));
 }
-export async function createSaleReturn(data: { returnId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; amount: string; reason?: string }) {
+export async function createSaleReturn(companyId: number, data: { returnId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; amount: string; reason?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(saleReturns).values(data as any);
+  await db.insert(saleReturns).values({ ...data, companyId } as any);
 }
-export async function deleteSaleReturn(id: number) {
+export async function deleteSaleReturn(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(saleReturns).where(eq(saleReturns.id, id));
+  await db.delete(saleReturns).where(and(eq(saleReturns.id, id), eq(saleReturns.companyId, companyId)));
 }
 
 // ─── Purchase Returns ───────────────────────────────────────────────────────
-export async function getAllPurchaseReturns() {
+export async function getAllPurchaseReturns(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(purchaseReturns).orderBy(desc(purchaseReturns.createdAt));
+  return db.select().from(purchaseReturns).where(eq(purchaseReturns.companyId, companyId)).orderBy(desc(purchaseReturns.createdAt));
 }
-export async function createPurchaseReturn(data: { returnId: string; vendorId: number; vendorName: string; date: string; billRef?: string; amount: string; reason?: string }) {
+export async function createPurchaseReturn(companyId: number, data: { returnId: string; vendorId: number; vendorName: string; date: string; billRef?: string; amount: string; reason?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(purchaseReturns).values(data as any);
+  await db.insert(purchaseReturns).values({ ...data, companyId } as any);
 }
-export async function deletePurchaseReturn(id: number) {
+export async function deletePurchaseReturn(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(purchaseReturns).where(eq(purchaseReturns.id, id));
+  await db.delete(purchaseReturns).where(and(eq(purchaseReturns.id, id), eq(purchaseReturns.companyId, companyId)));
 }
 
 // ─── Estimates ──────────────────────────────────────────────────────────────
-export async function getAllEstimates() {
+export async function getAllEstimates(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  const ests = await db.select().from(estimates).orderBy(desc(estimates.date));
+  const ests = await db.select().from(estimates).where(eq(estimates.companyId, companyId)).orderBy(desc(estimates.date));
   const lines = await db.select().from(estimateLines);
   return ests.map(e => ({ ...e, lines: lines.filter(l => l.estimateId === e.id) }));
 }
-export async function createEstimate(data: { estimateId: string; customerId: number; customerName: string; date: string; validUntil?: string; total: string; notes?: string; lines: { description: string; qty: number; rate: string; amount: string }[] }) {
+export async function createEstimate(companyId: number, data: { estimateId: string; customerId: number; customerName: string; date: string; validUntil?: string; total: string; notes?: string; lines: { description: string; qty: number; rate: string; amount: string }[] }) {
   const db = await getDb(); if (!db) return;
-  const [result] = await db.insert(estimates).values({ estimateId: data.estimateId, customerId: data.customerId, customerName: data.customerName, date: data.date, validUntil: data.validUntil, total: data.total, notes: data.notes } as any).$returningId();
+  const [result] = await db.insert(estimates).values({ estimateId: data.estimateId, customerId: data.customerId, customerName: data.customerName, date: data.date, validUntil: data.validUntil, total: data.total, notes: data.notes, companyId } as any).$returningId();
   if (data.lines.length > 0) {
     await db.insert(estimateLines).values(data.lines.map(l => ({ estimateId: result.id, description: l.description, qty: l.qty, rate: l.rate, amount: l.amount })));
   }
 }
-export async function updateEstimateStatus(id: number, status: string) {
+export async function updateEstimateStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(estimates).set({ status: status as any }).where(eq(estimates.id, id));
+  await db.update(estimates).set({ status: status as any }).where(and(eq(estimates.id, id), eq(estimates.companyId, companyId)));
 }
-export async function deleteEstimate(id: number) {
+export async function deleteEstimate(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
   await db.delete(estimateLines).where(eq(estimateLines.estimateId, id));
-  await db.delete(estimates).where(eq(estimates.id, id));
+  await db.delete(estimates).where(and(eq(estimates.id, id), eq(estimates.companyId, companyId)));
 }
 
 // ─── Payments In ────────────────────────────────────────────────────────────
-export async function getAllPaymentsIn() {
+export async function getAllPaymentsIn(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(paymentsIn).orderBy(desc(paymentsIn.date));
+  return db.select().from(paymentsIn).where(eq(paymentsIn.companyId, companyId)).orderBy(desc(paymentsIn.date));
 }
-export async function createPaymentIn(data: { paymentId: string; customerId: number; customerName: string; date: string; amount: string; mode: string; invoiceRef?: string; notes?: string }) {
+export async function createPaymentIn(companyId: number, data: { paymentId: string; customerId: number; customerName: string; date: string; amount: string; mode: string; invoiceRef?: string; notes?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(paymentsIn).values(data as any);
+  await db.insert(paymentsIn).values({ ...data, companyId } as any);
 }
-export async function deletePaymentIn(id: number) {
+export async function deletePaymentIn(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(paymentsIn).where(eq(paymentsIn.id, id));
+  await db.delete(paymentsIn).where(and(eq(paymentsIn.id, id), eq(paymentsIn.companyId, companyId)));
 }
 
 // ─── Payments Out ───────────────────────────────────────────────────────────
-export async function getAllPaymentsOut() {
+export async function getAllPaymentsOut(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(paymentsOut).orderBy(desc(paymentsOut.date));
+  return db.select().from(paymentsOut).where(eq(paymentsOut.companyId, companyId)).orderBy(desc(paymentsOut.date));
 }
-export async function createPaymentOut(data: { paymentId: string; vendorId: number; vendorName: string; date: string; amount: string; mode: string; billRef?: string; notes?: string }) {
+export async function createPaymentOut(companyId: number, data: { paymentId: string; vendorId: number; vendorName: string; date: string; amount: string; mode: string; billRef?: string; notes?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(paymentsOut).values(data as any);
+  await db.insert(paymentsOut).values({ ...data, companyId } as any);
 }
-export async function deletePaymentOut(id: number) {
+export async function deletePaymentOut(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(paymentsOut).where(eq(paymentsOut.id, id));
+  await db.delete(paymentsOut).where(and(eq(paymentsOut.id, id), eq(paymentsOut.companyId, companyId)));
 }
 
 // ─── Cash & Bank ────────────────────────────────────────────────────────────
-export async function getAllCashBankAccounts() {
+export async function getAllCashBankAccounts(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(cashBankAccounts).orderBy(asc(cashBankAccounts.name));
+  return db.select().from(cashBankAccounts).where(eq(cashBankAccounts.companyId, companyId)).orderBy(asc(cashBankAccounts.name));
 }
-export async function createCashBankAccount(data: { name: string; type: string; bankName?: string; accountNumber?: string; balance?: string }) {
+export async function createCashBankAccount(companyId: number, data: { name: string; type: string; bankName?: string; accountNumber?: string; balance?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(cashBankAccounts).values(data as any);
+  await db.insert(cashBankAccounts).values({ ...data, companyId } as any);
 }
-export async function updateCashBankAccount(id: number, data: Partial<{ name: string; type: string; bankName: string; accountNumber: string; balance: string }>) {
+export async function updateCashBankAccount(id: number, companyId: number, data: Partial<{ name: string; type: string; bankName: string; accountNumber: string; balance: string }>) {
   const db = await getDb(); if (!db) return;
-  await db.update(cashBankAccounts).set(data as any).where(eq(cashBankAccounts.id, id));
+  await db.update(cashBankAccounts).set(data as any).where(and(eq(cashBankAccounts.id, id), eq(cashBankAccounts.companyId, companyId)));
 }
-export async function deleteCashBankAccount(id: number) {
+export async function deleteCashBankAccount(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(cashBankAccounts).where(eq(cashBankAccounts.id, id));
+  await db.delete(cashBankAccounts).where(and(eq(cashBankAccounts.id, id), eq(cashBankAccounts.companyId, companyId)));
 }
 
 // ─── Expenses ───────────────────────────────────────────────────────────────
-export async function getAllExpenses() {
+export async function getAllExpenses(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(expenses).orderBy(desc(expenses.date));
+  return db.select().from(expenses).where(eq(expenses.companyId, companyId)).orderBy(desc(expenses.date));
 }
-export async function createExpense(data: { expenseId: string; date: string; category: string; amount: string; paymentMode: string; description?: string; gstIncluded?: boolean; gstAmount?: string }) {
+export async function createExpense(companyId: number, data: { expenseId: string; date: string; category: string; amount: string; paymentMode: string; description?: string; gstIncluded?: boolean; gstAmount?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(expenses).values(data as any);
+  await db.insert(expenses).values({ ...data, companyId } as any);
 }
-export async function deleteExpense(id: number) {
+export async function deleteExpense(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(expenses).where(eq(expenses.id, id));
+  await db.delete(expenses).where(and(eq(expenses.id, id), eq(expenses.companyId, companyId)));
 }
 
 // ─── Other Income ───────────────────────────────────────────────────────────
-export async function getAllOtherIncome() {
+export async function getAllOtherIncome(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(otherIncome).orderBy(desc(otherIncome.date));
+  return db.select().from(otherIncome).where(eq(otherIncome.companyId, companyId)).orderBy(desc(otherIncome.date));
 }
-export async function createOtherIncome(data: { incomeId: string; date: string; category: string; amount: string; paymentMode: string; description?: string }) {
+export async function createOtherIncome(companyId: number, data: { incomeId: string; date: string; category: string; amount: string; paymentMode: string; description?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(otherIncome).values(data as any);
+  await db.insert(otherIncome).values({ ...data, companyId } as any);
 }
-export async function deleteOtherIncome(id: number) {
+export async function deleteOtherIncome(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(otherIncome).where(eq(otherIncome.id, id));
+  await db.delete(otherIncome).where(and(eq(otherIncome.id, id), eq(otherIncome.companyId, companyId)));
 }
 
 // ─── Delivery Challans ──────────────────────────────────────────────────────
-export async function getAllDeliveryChallans() {
+export async function getAllDeliveryChallans(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(deliveryChallans).orderBy(desc(deliveryChallans.date));
+  return db.select().from(deliveryChallans).where(eq(deliveryChallans.companyId, companyId)).orderBy(desc(deliveryChallans.date));
 }
-export async function createDeliveryChallan(data: { challanId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; items?: any; transportMode?: string; vehicleNumber?: string; notes?: string }) {
+export async function createDeliveryChallan(companyId: number, data: { challanId: string; customerId: number; customerName: string; date: string; invoiceRef?: string; items?: any; transportMode?: string; vehicleNumber?: string; notes?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(deliveryChallans).values(data as any);
+  await db.insert(deliveryChallans).values({ ...data, companyId } as any);
 }
-export async function updateDeliveryChallanStatus(id: number, status: string) {
+export async function updateDeliveryChallanStatus(id: number, companyId: number, status: string) {
   const db = await getDb(); if (!db) return;
-  await db.update(deliveryChallans).set({ status: status as any }).where(eq(deliveryChallans.id, id));
+  await db.update(deliveryChallans).set({ status: status as any }).where(and(eq(deliveryChallans.id, id), eq(deliveryChallans.companyId, companyId)));
 }
-export async function deleteDeliveryChallan(id: number) {
+export async function deleteDeliveryChallan(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(deliveryChallans).where(eq(deliveryChallans.id, id));
+  await db.delete(deliveryChallans).where(and(eq(deliveryChallans.id, id), eq(deliveryChallans.companyId, companyId)));
 }
 
 // ─── Party Groups ───────────────────────────────────────────────────────────
-export async function getAllPartyGroups() {
+export async function getAllPartyGroups(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(partyGroups).orderBy(asc(partyGroups.name));
+  return db.select().from(partyGroups).where(eq(partyGroups.companyId, companyId)).orderBy(asc(partyGroups.name));
 }
-export async function createPartyGroup(data: { name: string; type: string; description?: string }) {
+export async function createPartyGroup(companyId: number, data: { name: string; type: string; description?: string }) {
   const db = await getDb(); if (!db) return;
-  await db.insert(partyGroups).values(data as any);
+  await db.insert(partyGroups).values({ ...data, companyId } as any);
 }
-export async function deletePartyGroup(id: number) {
+export async function deletePartyGroup(id: number, companyId: number) {
   const db = await getDb(); if (!db) return;
-  await db.delete(partyGroups).where(eq(partyGroups.id, id));
+  await db.delete(partyGroups).where(and(eq(partyGroups.id, id), eq(partyGroups.companyId, companyId)));
 }
 
 // ─── GST Summary Report ────────────────────────────────────────────────────
-export async function getGSTSummary() {
+export async function getGSTSummary(companyId: number) {
   const db = await getDb(); if (!db) return { salesGST: 0, purchaseGST: 0, expenseGST: 0, netGST: 0, invoices: [], bills: [], expenses: [] };
-  const allInvoices = await db.select().from(invoices);
-  const allBills = await db.select().from(bills);
-  const allExpenses = await db.select().from(expenses);
+  const allInvoices = await db.select().from(invoices).where(eq(invoices.companyId, companyId));
+  const allBills = await db.select().from(bills).where(eq(bills.companyId, companyId));
+  const allExpenses = await db.select().from(expenses).where(eq(expenses.companyId, companyId));
   const salesGST = allInvoices.reduce((sum, inv) => sum + Number(inv.total) * 0.18, 0);
   const purchaseGST = allBills.reduce((sum, b) => sum + Number(b.amount) * 0.18, 0);
   const expenseGST = allExpenses.filter(e => e.gstIncluded).reduce((sum, e) => sum + Number(e.gstAmount || 0), 0);
@@ -601,34 +602,34 @@ export async function getGSTSummary() {
 }
 
 // ─── Day Book ───────────────────────────────────────────────────────────────
-export async function getDayBook(date: string) {
+export async function getDayBook(companyId: number, date: string) {
   const db = await getDb(); if (!db) return { invoices: [], bills: [], paymentsIn: [], paymentsOut: [], expenses: [], otherIncome: [], journalEntries: [] };
-  const dayInvoices = await db.select().from(invoices).where(eq(invoices.date, date));
-  const dayBills = await db.select().from(bills).where(eq(bills.date, date));
-  const dayPI = await db.select().from(paymentsIn).where(eq(paymentsIn.date, date));
-  const dayPO = await db.select().from(paymentsOut).where(eq(paymentsOut.date, date));
-  const dayExp = await db.select().from(expenses).where(eq(expenses.date, date));
-  const dayOI = await db.select().from(otherIncome).where(eq(otherIncome.date, date));
-  const dayJE = await db.select().from(journalEntries).where(eq(journalEntries.date, date));
+  const dayInvoices = await db.select().from(invoices).where(and(eq(invoices.date, date), eq(invoices.companyId, companyId)));
+  const dayBills = await db.select().from(bills).where(and(eq(bills.date, date), eq(bills.companyId, companyId)));
+  const dayPI = await db.select().from(paymentsIn).where(and(eq(paymentsIn.date, date), eq(paymentsIn.companyId, companyId)));
+  const dayPO = await db.select().from(paymentsOut).where(and(eq(paymentsOut.date, date), eq(paymentsOut.companyId, companyId)));
+  const dayExp = await db.select().from(expenses).where(and(eq(expenses.date, date), eq(expenses.companyId, companyId)));
+  const dayOI = await db.select().from(otherIncome).where(and(eq(otherIncome.date, date), eq(otherIncome.companyId, companyId)));
+  const dayJE = await db.select().from(journalEntries).where(and(eq(journalEntries.date, date), eq(journalEntries.companyId, companyId)));
   return { invoices: dayInvoices, bills: dayBills, paymentsIn: dayPI, paymentsOut: dayPO, expenses: dayExp, otherIncome: dayOI, journalEntries: dayJE };
 }
 
 // ─── Cashflow Report ────────────────────────────────────────────────────────
-export async function getCashflowReport() {
+export async function getCashflowReport(companyId: number) {
   const db = await getDb(); if (!db) return { inflows: 0, outflows: 0, net: 0, details: [] };
-  const allPI = await db.select().from(paymentsIn);
-  const allPO = await db.select().from(paymentsOut);
-  const allOI = await db.select().from(otherIncome);
-  const allExp = await db.select().from(expenses);
+  const allPI = await db.select().from(paymentsIn).where(eq(paymentsIn.companyId, companyId));
+  const allPO = await db.select().from(paymentsOut).where(eq(paymentsOut.companyId, companyId));
+  const allOI = await db.select().from(otherIncome).where(eq(otherIncome.companyId, companyId));
+  const allExp = await db.select().from(expenses).where(eq(expenses.companyId, companyId));
   const inflows = allPI.reduce((s, p) => s + Number(p.amount), 0) + allOI.reduce((s, o) => s + Number(o.amount), 0);
   const outflows = allPO.reduce((s, p) => s + Number(p.amount), 0) + allExp.reduce((s, e) => s + Number(e.amount), 0);
   return { inflows: Math.round(inflows * 100) / 100, outflows: Math.round(outflows * 100) / 100, net: Math.round((inflows - outflows) * 100) / 100, paymentsIn: allPI, paymentsOut: allPO, otherIncome: allOI, expenses: allExp };
 }
 
 // ─── Aging Report (Overdue Invoices) ────────────────────────────────────────
-export async function getAgingReport() {
+export async function getAgingReport(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  const allInvoices = await db.select().from(invoices);
+  const allInvoices = await db.select().from(invoices).where(eq(invoices.companyId, companyId));
   const today = new Date().toISOString().split('T')[0];
   return allInvoices.filter(inv => inv.status !== 'Paid' && inv.dueDate < today).map(inv => {
     const daysOverdue = Math.floor((new Date(today).getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24));
@@ -641,30 +642,30 @@ export async function getAgingReport() {
 }
 
 // ─── Stock Summary Report ───────────────────────────────────────────────────
-export async function getStockSummary() {
+export async function getStockSummary(companyId: number) {
   const db = await getDb(); if (!db) return [];
-  return db.select().from(inventory).orderBy(asc(inventory.category), asc(inventory.name));
+  return db.select().from(inventory).where(eq(inventory.companyId, companyId)).orderBy(asc(inventory.category), asc(inventory.name));
 }
 
 // ─── Party Statement ────────────────────────────────────────────────────────
-export async function getPartyStatement(partyType: string, partyId: number) {
+export async function getPartyStatement(companyId: number, partyType: string, partyId: number) {
   const db = await getDb(); if (!db) return { party: null, transactions: [] };
   const txns: { date: string; type: string; ref: string; debit: number; credit: number }[] = [];
   if (partyType === 'customer') {
-    const cust = await db.select().from(customers).where(eq(customers.id, partyId)).limit(1);
-    const custInvoices = await db.select().from(invoices).where(eq(invoices.customerId, partyId));
-    const custPayments = await db.select().from(paymentsIn).where(eq(paymentsIn.customerId, partyId));
-    const custReturns = await db.select().from(saleReturns).where(eq(saleReturns.customerId, partyId));
+    const cust = await db.select().from(customers).where(and(eq(customers.id, partyId), eq(customers.companyId, companyId))).limit(1);
+    const custInvoices = await db.select().from(invoices).where(and(eq(invoices.customerId, partyId), eq(invoices.companyId, companyId)));
+    const custPayments = await db.select().from(paymentsIn).where(and(eq(paymentsIn.customerId, partyId), eq(paymentsIn.companyId, companyId)));
+    const custReturns = await db.select().from(saleReturns).where(and(eq(saleReturns.customerId, partyId), eq(saleReturns.companyId, companyId)));
     custInvoices.forEach(inv => txns.push({ date: inv.date, type: 'Invoice', ref: inv.invoiceId, debit: Number(inv.total), credit: 0 }));
     custPayments.forEach(p => txns.push({ date: p.date, type: 'Payment In', ref: p.paymentId, debit: 0, credit: Number(p.amount) }));
     custReturns.forEach(r => txns.push({ date: r.date, type: 'Sale Return', ref: r.returnId, debit: 0, credit: Number(r.amount) }));
     txns.sort((a, b) => a.date.localeCompare(b.date));
     return { party: cust[0] || null, transactions: txns };
   } else {
-    const vend = await db.select().from(vendors).where(eq(vendors.id, partyId)).limit(1);
-    const vendBills = await db.select().from(bills).where(eq(bills.vendorId, partyId));
-    const vendPayments = await db.select().from(paymentsOut).where(eq(paymentsOut.vendorId, partyId));
-    const vendReturns = await db.select().from(purchaseReturns).where(eq(purchaseReturns.vendorId, partyId));
+    const vend = await db.select().from(vendors).where(and(eq(vendors.id, partyId), eq(vendors.companyId, companyId))).limit(1);
+    const vendBills = await db.select().from(bills).where(and(eq(bills.vendorId, partyId), eq(bills.companyId, companyId)));
+    const vendPayments = await db.select().from(paymentsOut).where(and(eq(paymentsOut.vendorId, partyId), eq(paymentsOut.companyId, companyId)));
+    const vendReturns = await db.select().from(purchaseReturns).where(and(eq(purchaseReturns.vendorId, partyId), eq(purchaseReturns.companyId, companyId)));
     vendBills.forEach(b => txns.push({ date: b.date, type: 'Bill', ref: b.billId, debit: 0, credit: Number(b.amount) }));
     vendPayments.forEach(p => txns.push({ date: p.date, type: 'Payment Out', ref: p.paymentId, debit: Number(p.amount), credit: 0 }));
     vendReturns.forEach(r => txns.push({ date: r.date, type: 'Purchase Return', ref: r.returnId, debit: Number(r.amount), credit: 0 }));
@@ -678,9 +679,7 @@ export async function createCompany(data: { name: string; slug: string; gstin?: 
   const db = await getDb(); if (!db) return null;
   const trialEnd = new Date(); trialEnd.setDate(trialEnd.getDate() + 30);
   const [result] = await db.insert(companies).values(data as any).$returningId();
-  // Create subscription with 30-day trial
   await db.insert(subscriptions).values({ companyId: result.id, plan: "professional", status: "trial", trialStartDate: new Date(), trialEndDate: trialEnd } as any);
-  // Add owner as member
   await db.insert(companyMembers).values({ companyId: result.id, userId: data.ownerId, role: "owner" } as any);
   return result;
 }
