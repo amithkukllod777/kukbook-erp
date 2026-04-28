@@ -292,3 +292,95 @@
 - [ ] WhatsApp/Email — Real API integration for message delivery (currently UI compose form only)
 - [ ] Multi-Currency — Support beyond INR (currently INR-only throughout)
 - [ ] Bank Reconciliation — Full implementation (currently not started at all)
+
+## Super Admin / SaaS Control Panel (Platform-Level Management)
+
+### 1. Global Dashboard (Super Admin View)
+- [ ] Total users / businesses onboarded KPI cards
+- [ ] Active vs inactive users stats
+- [ ] Revenue metrics (MRR, ARR) with charts
+- [ ] Subscription stats (trial, active, expired, cancelled)
+- [ ] Support tickets overview widget
+
+### 2. User / Business Management
+- [ ] All registered businesses list with search/filter
+- [ ] Business profile view (GST, company details, plan)
+- [ ] Account status control (active / suspended / banned)
+- [ ] Login history with timestamps
+- [ ] Impersonation (admin login as user) button
+
+### 3. Subscription & Billing Management
+- [ ] Plans create/edit (Basic, Pro, Enterprise) with pricing control
+- [ ] Coupon / discount code system (create, manage, track usage)
+- [ ] Subscription lifecycle view (trial → active → expired per business)
+- [ ] Payment history across all businesses
+- [ ] Refund management interface
+
+### 4. Financial & Revenue Analytics
+- [ ] Revenue breakdown (plan-wise, region-wise) charts
+- [ ] Churn rate calculation and display
+- [ ] LTV (lifetime value) per customer segment
+- [ ] Payment gateway reports (Stripe transaction summary)
+
+### 5. Feature & Module Control (Feature Flags)
+- [ ] Feature flags table (enable/disable features globally or per business)
+- [ ] Beta rollout (selected businesses ke liye feature test)
+- [ ] Module access control (inventory, billing, reports etc. per plan)
+
+### 6. Content & Template Management
+- [ ] Invoice templates editor (manage available templates)
+- [ ] Email templates management (OTP, reminders, marketing)
+- [ ] SMS templates management
+- [ ] Notification content editor
+- [ ] Help docs / FAQs management
+
+### 7. Integration Management
+- [ ] Payment gateway config (Razorpay, Stripe settings)
+- [ ] SMS provider config (MSG91, Twilio)
+- [ ] Email service config (SendGrid, SES)
+- [ ] Webhook monitoring dashboard
+
+### 8. Internal Team Management
+- [ ] Admin roles (support, finance, devops) with RBAC
+- [ ] Admin activity logs (kis admin ne kya kiya)
+- [ ] Team member list with role assignment
+
+### 9. Customer Support Panel
+- [ ] Support tickets system (open / resolved / pending)
+- [ ] User issue history view
+- [ ] Escalation system (priority levels)
+- [ ] Ticket assignment to team members
+
+### 10. Security & Compliance
+- [ ] Audit logs viewer (all system actions)
+- [ ] Suspicious login detection alerts
+- [ ] Rate limiting / abuse prevention settings
+- [ ] Data policy management page
+
+### 11. Marketing & Growth Tools
+- [ ] Referral system control (codes, tracking)
+- [ ] Campaign management (email/SMS blast interface)
+- [ ] Lead tracking from landing page signups
+- [ ] Conversion funnel analytics
+
+### 12. Logs & Debugging
+- [ ] API request logs viewer with filters
+- [ ] Error logs viewer
+- [ ] Background job / queue monitoring
+
+### 13. System Settings
+- [ ] Environment config viewer
+- [ ] Backup & restore controls
+- [ ] Platform-wide settings (default currency, tax rules)
+
+### 14. Localization & Multi-Tenant Control
+- [ ] Multi-country config (currency, tax per region)
+- [ ] Language pack management
+- [ ] Default locale settings
+
+## Party Enrollment Enhancement (Customer/Vendor Form)
+- [x] GSTIN field prominent in Customer form with auto-detect State from GSTIN first 2 digits
+- [x] Bill To Address section (Address Line 1, Line 2, City, State, Pincode) in Customer form
+- [x] Ship To Address section with "Same as Bill To" checkbox in Customer form
+- [x] Same GST + Bill To / Ship To enhancement in Vendor form
+- [x] DB schema: Add billing/shipping address columns to customers and vendors tables

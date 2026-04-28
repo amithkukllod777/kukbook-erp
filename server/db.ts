@@ -433,12 +433,12 @@ export async function getAllCustomers(companyId: number) {
   return db.select().from(customers).where(eq(customers.companyId, companyId)).orderBy(asc(customers.name));
 }
 
-export async function createCustomer(companyId: number, data: { name: string; email?: string; phone?: string; gstin?: string; state?: string; city?: string; address?: string }) {
+export async function createCustomer(companyId: number, data: { name: string; email?: string; phone?: string; gstin?: string; pan?: string; state?: string; city?: string; address?: string; billingAddress1?: string; billingAddress2?: string; billingCity?: string; billingState?: string; billingPincode?: string; shippingAddress1?: string; shippingAddress2?: string; shippingCity?: string; shippingState?: string; shippingPincode?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(customers).values({ ...data, companyId } as any);
 }
 
-export async function updateCustomer(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; gstin: string; state: string; city: string; address: string }>) {
+export async function updateCustomer(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; gstin: string; pan: string; state: string; city: string; address: string; billingAddress1: string; billingAddress2: string; billingCity: string; billingState: string; billingPincode: string; shippingAddress1: string; shippingAddress2: string; shippingCity: string; shippingState: string; shippingPincode: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(customers).set(data as any).where(and(eq(customers.id, id), eq(customers.companyId, companyId)));
 }
@@ -544,12 +544,12 @@ export async function getAllVendors(companyId: number) {
   return db.select().from(vendors).where(eq(vendors.companyId, companyId)).orderBy(asc(vendors.name));
 }
 
-export async function createVendor(companyId: number, data: { name: string; email?: string; phone?: string; gstin?: string; state?: string; category?: string; address?: string }) {
+export async function createVendor(companyId: number, data: { name: string; email?: string; phone?: string; gstin?: string; pan?: string; state?: string; category?: string; address?: string; billingAddress1?: string; billingAddress2?: string; billingCity?: string; billingState?: string; billingPincode?: string; shippingAddress1?: string; shippingAddress2?: string; shippingCity?: string; shippingState?: string; shippingPincode?: string }) {
   const db = await getDb(); if (!db) return;
   await db.insert(vendors).values({ ...data, companyId } as any);
 }
 
-export async function updateVendor(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; gstin: string; state: string; category: string; address: string }>) {
+export async function updateVendor(id: number, companyId: number, data: Partial<{ name: string; email: string; phone: string; gstin: string; pan: string; state: string; category: string; address: string; billingAddress1: string; billingAddress2: string; billingCity: string; billingState: string; billingPincode: string; shippingAddress1: string; shippingAddress2: string; shippingCity: string; shippingState: string; shippingPincode: string }>) {
   const db = await getDb(); if (!db) return;
   await db.update(vendors).set(data as any).where(and(eq(vendors.id, id), eq(vendors.companyId, companyId)));
 }

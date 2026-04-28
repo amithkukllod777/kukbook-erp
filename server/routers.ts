@@ -67,10 +67,10 @@ export const appRouter = router({
   customers: router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllCustomers(ctx.companyId)),
     create: companyProcedure.input(z.object({
-      name: z.string(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
+      name: z.string(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional(), balance: z.string().optional(), gstin: z.string().optional(), pan: z.string().optional(), billingAddress1: z.string().optional(), billingAddress2: z.string().optional(), billingCity: z.string().optional(), billingState: z.string().optional(), billingPincode: z.string().optional(), shippingAddress1: z.string().optional(), shippingAddress2: z.string().optional(), shippingCity: z.string().optional(), shippingState: z.string().optional(), shippingPincode: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createCustomer(ctx.companyId, input); return { success: true }; }),
     update: companyProcedure.input(z.object({
-      id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
+      id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), city: z.string().optional(), address: z.string().optional(), balance: z.string().optional(), gstin: z.string().optional(), pan: z.string().optional(), billingAddress1: z.string().optional(), billingAddress2: z.string().optional(), billingCity: z.string().optional(), billingState: z.string().optional(), billingPincode: z.string().optional(), shippingAddress1: z.string().optional(), shippingAddress2: z.string().optional(), shippingCity: z.string().optional(), shippingState: z.string().optional(), shippingPincode: z.string().optional()
     })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateCustomer(id, ctx.companyId, data); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteCustomer(input.id, ctx.companyId); return { success: true }; }),
   }),
@@ -139,10 +139,10 @@ export const appRouter = router({
   vendors: router({
     list: companyProcedure.query(async ({ ctx }) => db.getAllVendors(ctx.companyId)),
     create: companyProcedure.input(z.object({
-      name: z.string(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
+      name: z.string(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional(), balance: z.string().optional(), gstin: z.string().optional(), pan: z.string().optional(), billingAddress1: z.string().optional(), billingAddress2: z.string().optional(), billingCity: z.string().optional(), billingState: z.string().optional(), billingPincode: z.string().optional(), shippingAddress1: z.string().optional(), shippingAddress2: z.string().optional(), shippingCity: z.string().optional(), shippingState: z.string().optional(), shippingPincode: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createVendor(ctx.companyId, input); return { success: true }; }),
     update: companyProcedure.input(z.object({
-      id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional(), balance: z.string().optional()
+      id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), category: z.string().optional(), address: z.string().optional(), balance: z.string().optional(), gstin: z.string().optional(), pan: z.string().optional(), billingAddress1: z.string().optional(), billingAddress2: z.string().optional(), billingCity: z.string().optional(), billingState: z.string().optional(), billingPincode: z.string().optional(), shippingAddress1: z.string().optional(), shippingAddress2: z.string().optional(), shippingCity: z.string().optional(), shippingState: z.string().optional(), shippingPincode: z.string().optional()
     })).mutation(async ({ ctx, input }) => { const { id, ...data } = input; await db.updateVendor(id, ctx.companyId, data); return { success: true }; }),
     delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteVendor(input.id, ctx.companyId); return { success: true }; }),
   }),
