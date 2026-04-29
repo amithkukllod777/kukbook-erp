@@ -567,3 +567,12 @@
 - [ ] Toggle: Show/Hide Bank Details in PDF
 - [ ] Toggle: Show/Hide Signature block in PDF
 - [ ] Settings saved per company in DB, applied to invoice form + PDF export
+
+## Invoice PDF Layouts (Phase 2 Complete)
+- [x] 5 Professional Invoice Layouts (Professional/FoodOnDoor, Modern, Corporate, Minimal, Creative)
+- [x] Color customization system (primary, secondary, accent, background, text, border)
+- [x] Layout selection in Admin Settings
+- [x] Dynamic HTML generation per layout with full GST/Tax support
+- [x] Bank details integration in layouts
+- [x] PO Number, E-way Bill, Batch, Expiry, MFG Date fields support
+- [x] Export function updated to support layout selection
