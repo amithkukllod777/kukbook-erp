@@ -13,7 +13,7 @@ const settingFields = [
   { key: "company_phone", label: "Company Phone", placeholder: "+1 (555) 000-0000" },
   { key: "company_address", label: "Company Address", placeholder: "123 Business St, City, State" },
   { key: "tax_id", label: "Tax ID / GST Number", placeholder: "XX-XXXXXXX" },
-  { key: "currency", label: "Default Currency", placeholder: "USD" },
+  { key: "currency", label: "Default Currency", placeholder: "INR" },
   { key: "fiscal_year_start", label: "Fiscal Year Start", placeholder: "January" },
   { key: "invoice_prefix", label: "Invoice Prefix", placeholder: "INV-" },
   { key: "bill_prefix", label: "Bill Prefix", placeholder: "BILL-" },

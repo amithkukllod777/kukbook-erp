@@ -10,7 +10,7 @@ import { Plus, Trash2, Search, CheckCircle, Truck } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 
-const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(n);
 const statusColors: Record<string, string> = { Draft: "bg-gray-100 text-gray-800", Ordered: "bg-blue-100 text-blue-800", Received: "bg-emerald-100 text-emerald-800", Cancelled: "bg-red-100 text-red-800" };
 
 export default function PurchaseOrders() {

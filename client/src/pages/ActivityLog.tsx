@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Activity, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Activity, Search, ChevronLeft, ChevronRight, FileDown, FileSpreadsheet } from "lucide-react";
+import { exportToPDF, exportToCSV } from "@/lib/export";
 
 export default function ActivityLog() {
   const { activeCompany } = useCompany();
@@ -32,12 +33,49 @@ export default function ActivityLog() {
     l.userName?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const exportColumns = [
+    { header: "Date & Time", key: "dateTime" },
+    { header: "User", key: "userName" },
+    { header: "Action", key: "action" },
+    { header: "Entity Type", key: "entityType" },
+    { header: "Entity Name", key: "entityName" },
+    { header: "IP Address", key: "ipAddress" },
+  ];
+
+  const exportData = filtered.map((l: any) => ({
+    dateTime: new Date(l.createdAt).toLocaleString("en-IN"),
+    userName: l.userName || "System",
+    action: l.action,
+    entityType: l.entityType,
+    entityName: l.entityName || "—",
+    ipAddress: l.ipAddress || "—",
+  }));
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Activity Log</h1>
           <p className="text-muted-foreground">Track all changes made in your company</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToPDF({
+            title: "Audit Trail Report",
+            subtitle: `${activeCompany?.name || "Company"} — Generated on ${new Date().toLocaleDateString("en-IN")}`,
+            filename: "audit-trail",
+            columns: exportColumns,
+            data: exportData,
+          })}>
+            <FileDown className="h-4 w-4 mr-2" />PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportToCSV({
+            title: "Audit Trail Report",
+            filename: "audit-trail",
+            columns: exportColumns,
+            data: exportData,
+          })}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />CSV
+          </Button>
         </div>
       </div>
 

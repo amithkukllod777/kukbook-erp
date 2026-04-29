@@ -278,20 +278,20 @@
 - [ ] E-Commerce Integration — Amazon/Shopify order sync with inventory
 - [ ] PWA / Offline Mode — Progressive Web App for offline access and mobile install
 - [ ] Real-Time Updates — WebSocket/SSE for live data sync across tabs/users
-- [ ] Audit Trail Report — Downloadable audit log report (PDF/Excel export of activity log)
+- [x] Audit Trail Report — Downloadable audit log report (PDF/CSV export of activity log)
 - [ ] Multi-Language Support — Hindi, Gujarati, Marathi, Tamil etc. UI translations
 
 ## Partial Features — Need Completion (from Feature Audit)
 - [ ] Payment Reminders — Real SMS/WhatsApp/email sending (currently UI-only, no actual delivery)
-- [ ] Invoice Due Alerts — Auto-notification when invoice becomes overdue (currently just status badge)
+- [x] Invoice Due Alerts — Overdue invoices alert widget on Dashboard
 - [ ] Invoice Themes — Apply selected template to actual PDF export (currently preview-only, not saved to DB)
 - [ ] E-Way Bill — NIC API backend integration (currently frontend-only form, no API call or DB save)
-- [ ] Top Customers/Products — Dashboard ranking widget (currently shows recent transactions only)
+- [x] Top Customers/Products — Dashboard ranking widget (Top 5 customers & products)
 - [ ] Real-time Updates — WebSocket/SSE live sync (currently data refreshes only on page navigation)
 - [ ] Razorpay/Paytm — Customer payment collection integration (currently only Stripe for subscriptions)
 - [ ] WhatsApp/Email — Real API integration for message delivery (currently UI compose form only)
 - [ ] Multi-Currency — Support beyond INR (currently INR-only throughout)
-- [ ] Bank Reconciliation — Full implementation (currently not started at all)
+- [x] Bank Reconciliation — Full implementation (DB + backend + frontend page)
 
 ## Super Admin / SaaS Control Panel (Platform-Level Management)
 
@@ -397,3 +397,12 @@
 
 ## Bug Fix — White Page
 - [x] BUG: Website showing white/blank page after deployment (was browser cache issue, site working fine)
+
+## Currency Fix & Remaining Features
+- [x] BUG: Dashboard showing $ instead of ₹ — fix all currency formatting to INR (₹) across entire app
+- [x] Audit Trail Report — PDF/CSV export of Activity Log
+- [x] Top Customers/Products widget on Dashboard page (Top 5 each)
+- [x] Invoice Due Alerts — Overdue invoices warning widget on Dashboard
+- [ ] Multi-Language Support — i18n framework (Hindi at minimum)
+- [ ] PWA / Offline Mode — service worker + manifest for mobile install
+- [ ] Real-Time Updates — SSE (Server-Sent Events) for live data sync

@@ -1,11 +1,11 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, Landmark, Receipt, ShoppingCart, Package, AlertTriangle } from "lucide-react";
+import { IndianRupee, TrendingUp, Landmark, Receipt, ShoppingCart, Package, AlertTriangle, Crown, Trophy } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(n);
+const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0 }).format(n);
 
 const COLORS = ["oklch(0.588 0.200 260)", "oklch(0.600 0.200 145)", "oklch(0.650 0.180 50)", "oklch(0.550 0.200 310)", "oklch(0.600 0.200 25)", "oklch(0.500 0.150 200)"];
 
@@ -26,7 +26,7 @@ export default function Dashboard() {
   }
 
   const kpis = [
-    { label: "Revenue", value: fmt(data.totalRevenue), icon: DollarSign, color: "text-emerald-600" },
+    { label: "Revenue", value: fmt(data.totalRevenue), icon: IndianRupee, color: "text-emerald-600" },
     { label: "Net Income", value: fmt(data.netIncome), icon: TrendingUp, color: "text-blue-600" },
     { label: "Total Assets", value: fmt(data.totalAssets), icon: Landmark, color: "text-violet-600" },
     { label: "AR Outstanding", value: fmt(data.arOutstanding), icon: Receipt, color: "text-amber-600" },
@@ -82,7 +82,7 @@ export default function Dashboard() {
               <BarChart data={revenueExpenseData} barSize={48}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v: number) => fmt(v)} />
                 <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                   <Cell fill="oklch(0.600 0.200 145)" />
@@ -171,6 +171,113 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Top Customers & Products Row */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TopCustomersWidget />
+        <TopProductsWidget />
+      </div>
+
+      {/* Overdue Invoices Alert */}
+      <OverdueInvoicesWidget />
     </div>
+  );
+}
+
+function TopCustomersWidget() {
+  const { data: customers = [] } = trpc.topRanking.customers.useQuery({ limit: 5 });
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Crown className="h-4 w-4 text-amber-500" />
+          Top Customers by Revenue
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {customers.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">No customer data yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {customers.map((c: any, i: number) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-700' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-muted text-muted-foreground'}`}>#{i + 1}</span>
+                  <div>
+                    <p className="text-sm font-medium">{c.customerName}</p>
+                    <p className="text-xs text-muted-foreground">{c.invoiceCount} invoices</p>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold">{fmt(Number(c.totalRevenue || 0))}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TopProductsWidget() {
+  const { data: products = [] } = trpc.topRanking.products.useQuery({ limit: 5 });
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-indigo-500" />
+          Top Products by Sales
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {products.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">No product data yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {products.map((p: any, i: number) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${i === 0 ? 'bg-indigo-100 text-indigo-700' : i === 1 ? 'bg-gray-100 text-gray-700' : i === 2 ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'}`}>#{i + 1}</span>
+                  <div>
+                    <p className="text-sm font-medium">{p.productName}</p>
+                    <p className="text-xs text-muted-foreground">{p.totalQty} units sold</p>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold">{fmt(Number(p.totalRevenue || 0))}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OverdueInvoicesWidget() {
+  const { data: invoices = [] } = trpc.invoices.list.useQuery();
+  const overdue = invoices.filter((inv: any) => inv.status === 'Overdue' || (inv.status !== 'Paid' && inv.dueDate && new Date(inv.dueDate) < new Date()));
+  if (overdue.length === 0) return null;
+  return (
+    <Card className="shadow-sm border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-4 w-4" />
+          Overdue Invoices ({overdue.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {overdue.slice(0, 5).map((inv: any) => (
+            <div key={inv.id} className="flex items-center justify-between py-2 border-b border-amber-200 dark:border-amber-800 last:border-0">
+              <div>
+                <p className="text-sm font-medium">{inv.customerName}</p>
+                <p className="text-xs text-muted-foreground">{inv.invoiceId} — Due: {inv.dueDate}</p>
+              </div>
+              <Badge variant="destructive">{fmt(Number(inv.total || 0))}</Badge>
+            </div>
+          ))}
+          {overdue.length > 5 && <p className="text-xs text-muted-foreground text-center">+{overdue.length - 5} more overdue invoices</p>}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
