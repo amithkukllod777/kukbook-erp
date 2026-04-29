@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Settings, Save, CreditCard, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Shield, Settings, Save, CreditCard, Eye, EyeOff, ExternalLink, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -25,6 +26,21 @@ const razorpayFields = [
   { key: "razorpay_key_id", label: "Razorpay Key ID", placeholder: "rzp_test_xxxxxxxxxx", secret: false },
   { key: "razorpay_key_secret", label: "Razorpay Key Secret", placeholder: "xxxxxxxxxxxxxxxxxxxxxxxx", secret: true },
   { key: "razorpay_webhook_secret", label: "Webhook Secret (optional)", placeholder: "whsec_xxxxxxxxxx", secret: true },
+];
+
+const bankFields = [
+  { key: "bank_name", label: "Bank Name", placeholder: "IDFC FIRST BANK LTD." },
+  { key: "bank_account_number", label: "Account Number", placeholder: "10068178583" },
+  { key: "bank_ifsc_code", label: "IFSC Code", placeholder: "IDFB0043161" },
+  { key: "bank_account_holder", label: "Account Holder Name", placeholder: "Your Company Name" },
+];
+
+const invoiceFormats = [
+  { value: "professional", label: "Professional (FoodOnDoor Style)" },
+  { value: "compact", label: "Compact" },
+  { value: "detailed", label: "Detailed" },
+  { value: "minimal", label: "Minimal" },
+  { value: "corporate", label: "Corporate" },
 ];
 
 export default function AdminSettings() {
@@ -96,6 +112,76 @@ export default function AdminSettings() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Bank Details */}
+      <Card className="shadow-sm border-green-200">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Settings className="h-4 w-4 text-green-600" />
+            Bank Details
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Bank information displayed on invoices and payment receipts
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {bankFields.map((field) => (
+              <div key={field.key} className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="text-sm font-medium">{field.label}</label>
+                  <Input
+                    value={values[field.key] || ""}
+                    onChange={e => setValues({ ...values, [field.key]: e.target.value })}
+                    placeholder={field.placeholder}
+                  />
+                </div>
+                <Button variant="outline" size="icon" onClick={() => handleSave(field.key)} disabled={upsertMut.isPending}>
+                  <Save className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Invoice Format Selection */}
+      <Card className="shadow-sm border-purple-200">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-purple-600" />
+            Invoice Format
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Choose default invoice layout for PDF export
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="text-sm font-medium">Default Invoice Format</label>
+              <Select value={values["invoice_format"] || "professional"} onValueChange={(val) => setValues({ ...values, invoice_format: val })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {invoiceFormats.map((fmt) => (
+                    <SelectItem key={fmt.value} value={fmt.value}>
+                      {fmt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="icon" onClick={() => handleSave("invoice_format")} disabled={upsertMut.isPending}>
+              <Save className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Current format: <span className="font-medium">{invoiceFormats.find(f => f.value === values["invoice_format"])?.label || "Professional"}</span>
+          </p>
         </CardContent>
       </Card>
 

@@ -120,6 +120,10 @@ export const invoices = mysqlTable("invoices", {
   paidAmount: decimal("paidAmount", { precision: 15, scale: 2 }).default("0").notNull(),
   dueAmount: decimal("dueAmount", { precision: 15, scale: 2 }).default("0").notNull(),
   journalEntryId: int("inv_journalEntryId"),
+  poNumber: varchar("po_number", { length: 50 }),
+  poDate: varchar("po_date", { length: 10 }),
+  ewayBillNumber: varchar("eway_bill_number", { length: 50 }),
+  invoiceFormat: varchar("invoice_format", { length: 50 }).default("professional"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -135,6 +139,12 @@ export const invoiceLines = mysqlTable("invoice_lines", {
   discount: decimal("discount", { precision: 15, scale: 2 }).default("0").notNull(),
   gstRate: decimal("il_gstRate", { precision: 5, scale: 2 }).default("0").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).default("0").notNull(),
+  batchNumber: varchar("batch_number", { length: 100 }),
+  expiryDate: varchar("expiry_date", { length: 10 }),
+  mfgDate: varchar("mfg_date", { length: 10 }),
+  mrp: decimal("mrp", { precision: 15, scale: 2 }),
+  taxablePrice: decimal("taxable_price", { precision: 15, scale: 2 }),
+  upc: varchar("upc", { length: 50 }),
 });
 
 export type InvoiceLine = typeof invoiceLines.$inferSelect;

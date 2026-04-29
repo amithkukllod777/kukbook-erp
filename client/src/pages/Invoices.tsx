@@ -52,7 +52,7 @@ export default function Invoices() {
   const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [tcsEnabled, setTcsEnabled] = useState(false);
   const [tcsSection, setTcsSection] = useState("");
-  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
+  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", poNumber: "", poDate: "", ewayBillNumber: "", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0" }] });
 
   // TCS Sections for sales
   const TCS_SECTIONS = [
@@ -89,7 +89,7 @@ export default function Invoices() {
   const tcsAmount = tcsEnabled && tcsRate > 0 ? Math.round(totalBeforeTcs * tcsRate / 100 * 100) / 100 : 0;
   const total = totalBeforeTcs + tcsAmount;
 
-  const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
+  const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0" }] });
   const removeLine = (i: number) => { if (form.lines.length <= 1) return; setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) }); };
   const updateLine = (i: number, field: string, value: any) => {
     const lines = [...form.lines];
@@ -103,7 +103,7 @@ export default function Invoices() {
   };
 
   const openCreate = () => {
-    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0" }] });
+    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", poNumber: "", poDate: "", ewayBillNumber: "", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0" }] });
     setGstRate("18");
     setPlaceOfSupply("");
     setTcsEnabled(false);

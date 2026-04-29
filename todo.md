@@ -406,6 +406,8 @@
 - [x] Multi-Language Support — i18n framework (Hindi + English with LanguageSwitcher)
 - [x] PWA / Offline Mode — service worker + manifest for mobile install
 - [x] Real-Time Updates — SSE (Server-Sent Events) for live data sync
+- [x] Admin Settings — Bank Details section (Bank Name, Account Number, IFSC, Account Holder)
+- [x] Admin Settings — Invoice Format selector (Professional, Compact, Detailed, Minimal, Corporate)
 
 ## Razorpay Payment Gateway Integration
 - [x] DB: payment_gateway_config table (companyId, provider, keyId, keySecret, webhookSecret, isActive)
@@ -432,3 +434,136 @@
 - [x] Frontend: Razorpay checkout popup integration (load razorpay script, open checkout)
 - [x] Frontend: Payment success → show confirmation + redirect to dashboard
 - [x] Frontend: Payment failure → show error toast + retry option
+
+## Bank Account Types Enhancement
+- [ ] Multiple bank account types — Savings Account, Current Account, OD (Overdraft) Account, Credit Card Account, Loan Account, Foreign Currency Account, Fixed Deposit Account
+- [ ] Bank account sub-type field in Cash & Bank module (currently only Cash/Bank/UPI/Wallet)
+- [ ] IFSC code field for bank accounts
+- [ ] Branch name field for bank accounts
+- [ ] Opening balance date for bank accounts
+
+## Multi-Currency Support (Tally-style)
+- [ ] Currency master table (code, name, symbol, decimal places, exchange rate to INR)
+- [ ] Default currency setting per company (INR)
+- [ ] Currency field on Invoice / Bill / Payment-In / Payment-Out (select currency per transaction)
+- [ ] Exchange rate input on foreign currency transactions
+- [ ] Same party — multiple currency invoices (e.g., one customer with USD + EUR invoices)
+- [ ] General Ledger default view in base currency (INR) with converted amounts
+- [ ] General Ledger currency filter — view ledger in specific currency only
+- [ ] Exchange gain/loss auto-calculation on payment (difference between invoice rate and payment rate)
+- [ ] Multi-currency Trial Balance / P&L / Balance Sheet (converted to base currency)
+- [ ] Foreign currency bank account support (linked to currency master)
+
+## Packing List / Delivery Note
+- [ ] Packing List document — list of items packed for shipment (linked to invoice/challan)
+- [ ] Packing List fields: box number, weight, dimensions, item-wise packing detail
+- [ ] Packing List PDF export
+- [ ] Delivery Note (separate from Delivery Challan) — confirmation of goods dispatched
+- [ ] Delivery Note linked to Invoice with item-wise dispatch tracking
+
+## Goods Received Note (GRN)
+- [ ] GRN module — record goods received against Purchase Order
+- [ ] GRN fields: PO reference, vendor, date, item-wise received qty vs ordered qty
+- [ ] GRN status: Pending / Partial / Complete
+- [ ] GRN → auto-update inventory stock on receipt
+- [ ] GRN → link to Bill (bill created after GRN verification)
+- [ ] GRN PDF export
+
+## Goods Return Entry
+- [ ] Goods Return Note (outward) — linked to Purchase Return / Debit Note
+- [ ] Goods Return Note (inward) — linked to Sale Return / Credit Note
+- [ ] Item-wise return tracking with reason codes (damaged, wrong item, quality issue, etc.)
+- [ ] Return → auto-adjust inventory stock
+
+## Credit Note / Debit Note Enhancement
+- [ ] Credit Note — proper document with line items (currently Sale Return is basic amount-only)
+- [ ] Credit Note line items: item, qty returned, rate, GST, amount
+- [ ] Credit Note → auto journal entry (Dr Sales Return, Cr Customer)
+- [ ] Credit Note → auto inventory adjustment (stock back in)
+- [ ] Credit Note PDF export with GST breakup
+- [ ] Debit Note — proper document with line items (currently Purchase Return is basic amount-only)
+- [ ] Debit Note line items: item, qty returned, rate, GST, amount
+- [ ] Debit Note → auto journal entry (Dr Vendor, Cr Purchase Return)
+- [ ] Debit Note → auto inventory adjustment (stock back in)
+- [ ] Debit Note PDF export with GST breakup
+- [ ] Credit/Debit Note adjustment against future invoices/bills
+
+## Bank Account — Currency Selection on Ledger
+- [ ] Currency field on bank accounts (link to currency master — INR, USD, EUR, etc.)
+- [ ] When opening bank ledger, show default currency (base INR) with converted amounts
+- [ ] Currency filter dropdown on bank ledger — view transactions in specific currency only
+- [ ] Multi-currency balance display on Cash & Bank page (show balance in account currency + INR equivalent)
+
+## Invoice / Bill — Reference File Upload (Attachment)
+- [ ] File attachment field on Invoice (upload reference invoice, PO copy, etc.)
+- [ ] File attachment field on Bill (upload vendor bill scan/photo)
+- [ ] File attachment field on Purchase Order
+- [ ] Attachments stored in S3 via storagePut, URL saved in DB
+- [ ] View/download attachments from invoice/bill detail view
+
+## Print Settings (Admin Settings → Print Configuration)
+- [ ] Paper size selection — A4, A5, 4x6 (thermal), Letter, Legal, Custom
+- [ ] Page orientation — Portrait / Landscape
+- [ ] Margin settings (top, bottom, left, right in mm)
+- [ ] Print header ON/OFF toggle (company name, logo, address)
+- [ ] Print footer ON/OFF toggle (terms, signature line, generated by)
+- [ ] Number of copies default setting
+- [ ] Print preview before printing
+- [ ] Thermal printer support (58mm / 80mm receipt format)
+
+## Invoice Layout / Templates (Multiple Designs with Logo)
+- [ ] 4-5 distinct invoice PDF layouts (Classic, Modern, Compact, Professional, Minimal)
+- [ ] Company logo in invoice header (upload logo in settings, show in PDF)
+- [ ] Custom header text (company tagline, registration info)
+- [ ] Custom footer text (bank details, terms & conditions, thank you note)
+- [ ] Layout selection saved per company in settings (applied to all PDFs)
+- [ ] Invoice PDF shows: Logo + Company Name + Address + GSTIN + Contact in header
+- [ ] Invoice PDF shows: Bank details + Terms + Signature block in footer
+- [ ] Different layouts for: Invoice, Estimate, Proforma, Delivery Challan, Credit Note
+
+## Invoice Line Items — Batch / Barcode / Expiry / MFG Date
+- [ ] Batch Number field on invoice line items (select from inventory batches)
+- [ ] Barcode field on invoice line items (auto-fill from inventory item)
+- [ ] Expiry Date field on invoice line items (auto-fill from batch)
+- [ ] Manufactured Date field on invoice line items (auto-fill from batch)
+- [ ] Same fields on Bill line items (purchase side)
+- [ ] Batch selection dropdown (shows available batches for selected item with qty & expiry)
+
+## Invoice — PO Number & PO Date
+- [ ] PO Number field on Invoice form (customer's purchase order reference)
+- [ ] PO Date field on Invoice form
+- [ ] PO Number shown on Invoice PDF
+- [ ] PO Number field on Bill form (our PO reference to vendor)
+
+## Invoice — Payment Due Period (Quick Select)
+- [ ] Payment terms quick-select dropdown: Immediate, 7 Days, 15 Days, 30 Days, 45 Days, 60 Days, 90 Days, Custom
+- [ ] Auto-calculate Due Date from Invoice Date + selected period
+- [ ] Default payment terms setting per company (in Admin Settings)
+- [ ] Default payment terms per customer (set on customer profile, auto-apply on invoice)
+- [ ] Payment terms prefix/label customization
+
+## Invoice — E-Way Bill & Vehicle Fields
+- [ ] E-Way Bill Number field on Invoice form
+- [ ] E-Way Bill Date field on Invoice form
+- [ ] Vehicle Number field on Invoice form (for transport)
+- [ ] Transport Mode field (Road / Rail / Air / Ship)
+- [ ] Transporter Name field
+- [ ] These fields shown on Invoice PDF when filled
+
+## Invoice Section ON/OFF Settings (Admin Settings → Invoice Sections)
+- [ ] Toggle: Show/Hide GST breakup section (CGST/SGST/IGST columns)
+- [ ] Toggle: Show/Hide TCS section
+- [ ] Toggle: Show/Hide Discount column
+- [ ] Toggle: Show/Hide HSN Code column
+- [ ] Toggle: Show/Hide Batch Number column
+- [ ] Toggle: Show/Hide Barcode column
+- [ ] Toggle: Show/Hide Expiry Date column
+- [ ] Toggle: Show/Hide MFG Date column
+- [ ] Toggle: Show/Hide PO Number & Date
+- [ ] Toggle: Show/Hide E-Way Bill fields
+- [ ] Toggle: Show/Hide Vehicle/Transport fields
+- [ ] Toggle: Show/Hide Place of Supply
+- [ ] Toggle: Show/Hide Terms & Conditions in PDF
+- [ ] Toggle: Show/Hide Bank Details in PDF
+- [ ] Toggle: Show/Hide Signature block in PDF
+- [ ] Settings saved per company in DB, applied to invoice form + PDF export
