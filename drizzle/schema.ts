@@ -707,3 +707,93 @@ export const bankReconciliationItems = mysqlTable("bank_reconciliation_items", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type BankReconciliationItem = typeof bankReconciliationItems.$inferSelect;
+
+// ─── Proforma Invoices ──────────────────────────────────────────────────────
+export const proformaInvoices = mysqlTable("proforma_invoices", {
+  id: int("id").primaryKey().autoincrement(),
+  companyId: int("companyId").notNull(),
+  proformaId: varchar("proformaId", { length: 50 }).notNull(),
+  customerId: int("customerId"),
+  customerName: varchar("customerName", { length: 255 }),
+  date: varchar("date", { length: 20 }),
+  validUntil: varchar("validUntil", { length: 20 }),
+  status: varchar("status", { length: 30 }).default("Draft"),
+  subtotal: decimal("subtotal", { precision: 15, scale: 2 }).default("0"),
+  cgst: decimal("cgst", { precision: 15, scale: 2 }).default("0"),
+  sgst: decimal("sgst", { precision: 15, scale: 2 }).default("0"),
+  igst: decimal("igst", { precision: 15, scale: 2 }).default("0"),
+  total: decimal("total", { precision: 15, scale: 2 }).default("0"),
+  notes: text("notes"),
+  lineItems: json("lineItems"),
+  convertedInvoiceId: int("convertedInvoiceId"),
+  placeOfSupply: varchar("placeOfSupply", { length: 100 }),
+  gstRate: varchar("gstRate", { length: 10 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type ProformaInvoice = typeof proformaInvoices.$inferSelect;
+
+// ─── Inventory Batches ──────────────────────────────────────────────────────
+export const inventoryBatches = mysqlTable("inventory_batches", {
+  id: int("id").primaryKey().autoincrement(),
+  companyId: int("companyId").notNull(),
+  inventoryItemId: int("inventoryItemId").notNull(),
+  batchNumber: varchar("batchNumber", { length: 100 }).notNull(),
+  manufacturingDate: varchar("manufacturingDate", { length: 20 }),
+  expiryDate: varchar("expiryDate", { length: 20 }),
+  quantity: int("quantity").default(0),
+  purchasePrice: decimal("purchasePrice", { precision: 15, scale: 2 }).default("0"),
+  sellingPrice: decimal("sellingPrice", { precision: 15, scale: 2 }).default("0"),
+  status: varchar("status", { length: 30 }).default("active"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type InventoryBatch = typeof inventoryBatches.$inferSelect;
+
+// ─── Approval Workflows ─────────────────────────────────────────────────────
+export const approvalWorkflows = mysqlTable("approval_workflows", {
+  id: int("id").primaryKey().autoincrement(),
+  companyId: int("companyId").notNull(),
+  entityType: varchar("entityType", { length: 50 }).notNull(),
+  entityId: int("entityId").notNull(),
+  entityRef: varchar("entityRef", { length: 100 }),
+  requestedBy: int("requestedBy"),
+  requestedByName: varchar("requestedByName", { length: 255 }),
+  approverUserId: int("approverUserId"),
+  approverName: varchar("approverName", { length: 255 }),
+  status: varchar("status", { length: 30 }).default("pending"),
+  comments: text("comments"),
+  requestedAt: timestamp("requestedAt").defaultNow(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+export type ApprovalWorkflow = typeof approvalWorkflows.$inferSelect;
+
+// ─── E-Way Bills ────────────────────────────────────────────────────────────
+export const ewayBills = mysqlTable("eway_bills", {
+  id: int("id").primaryKey().autoincrement(),
+  companyId: int("companyId").notNull(),
+  ewayBillNo: varchar("ewayBillNo", { length: 50 }),
+  invoiceId: int("invoiceId"),
+  invoiceRef: varchar("invoiceRef", { length: 50 }),
+  fromGstin: varchar("fromGstin", { length: 20 }),
+  toGstin: varchar("toGstin", { length: 20 }),
+  fromAddress: text("fromAddress"),
+  toAddress: text("toAddress"),
+  transporterId: varchar("transporterId", { length: 50 }),
+  transporterName: varchar("transporterName", { length: 255 }),
+  vehicleNo: varchar("vehicleNo", { length: 30 }),
+  distance: varchar("distance", { length: 20 }),
+  transMode: varchar("transMode", { length: 30 }),
+  docType: varchar("docType", { length: 30 }),
+  docNo: varchar("docNo", { length: 50 }),
+  docDate: varchar("docDate", { length: 20 }),
+  totalValue: decimal("totalValue", { precision: 15, scale: 2 }).default("0"),
+  hsnCode: varchar("hsnCode", { length: 20 }),
+  status: varchar("status", { length: 30 }).default("pending"),
+  nicEwbNo: varchar("nicEwbNo", { length: 50 }),
+  nicEwbDate: varchar("nicEwbDate", { length: 30 }),
+  nicValidUpto: varchar("nicValidUpto", { length: 30 }),
+  nicStatus: varchar("nicStatus", { length: 30 }).default("pending"),
+  nicErrorMessage: text("nicErrorMessage"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type EwayBill = typeof ewayBills.$inferSelect;

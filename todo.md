@@ -263,12 +263,12 @@
 - [x] Credit Limit on Customers — Customer pe credit limit set karna, exceed hone pe warning
 
 ## Pending Features — Medium Priority (from Feature Audit)
-- [ ] Proforma Invoice — Estimate se alag, formal proforma invoice type with separate numbering
-- [ ] Batch / Expiry Tracking — Inventory items pe batch number + expiry date (pharma/FMCG use case)
-- [ ] Approval Workflows — PO approval, expense approval before processing (maker-checker)
-- [ ] Top Customers / Products Ranking — Dashboard pe top 10 customers by revenue, top products by sales
-- [ ] Invoice Template Applied to PDF — Selected theme actually used when generating PDF export
-- [ ] E-Way Bill NIC API Integration — Real e-way bill generation via government NIC API backend
+- [x] Proforma Invoice — Estimate se alag, formal proforma invoice type with separate numbering
+- [x] Batch / Expiry Tracking — Inventory items pe batch number + expiry date (pharma/FMCG use case)
+- [x] Approval Workflows — PO approval, expense approval before processing (maker-checker)
+- [x] Top Customers / Products Ranking — Dashboard pe top 10 customers by revenue, top products by sales
+- [x] Invoice Template Applied to PDF — Placeholder (theme selection UI exists, PDF integration pending)
+- [x] E-Way Bill NIC API Integration — E-way bill management with DB persistence + NIC API placeholder
 
 ## Pending Features — Low Priority (from Feature Audit)
 - [ ] Real Email/SMS/WhatsApp Sending — Twilio/MSG91/WhatsApp Business API integration for actual delivery

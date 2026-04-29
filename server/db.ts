@@ -10,7 +10,8 @@ import {
   paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome,
   deliveryChallans, partyGroups,
   companies, companyMembers, subscriptions, companyInvites, verificationCodes,
-  recurringInvoices, activityLogs, bankReconciliations, bankReconciliationItems
+  recurringInvoices, activityLogs, bankReconciliations, bankReconciliationItems,
+  proformaInvoices, inventoryBatches, approvalWorkflows, ewayBills
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1636,4 +1637,143 @@ export async function updateCustomerBalance(customerId: number, amount: number) 
   await db.update(customers).set(
     { currentBalance: sql`cust_currentBalance + ${amount}` } as any
   ).where(eq(customers.id, customerId));
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MEDIUM PRIORITY FEATURES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Proforma Invoices ──────────────────────────────────────────────────────
+export async function getAllProformaInvoices(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(proformaInvoices).where(eq(proformaInvoices.companyId, companyId)).orderBy(desc(proformaInvoices.createdAt));
+}
+
+export async function createProformaInvoice(companyId: number, data: {
+  proformaId: string; customerId?: number; customerName?: string;
+  date?: string; validUntil?: string; subtotal?: string; cgst?: string;
+  sgst?: string; igst?: string; total?: string; notes?: string;
+  lineItems?: any; placeOfSupply?: string; gstRate?: string;
+}) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(proformaInvoices).values({ ...data, companyId } as any);
+}
+
+export async function updateProformaStatus(id: number, companyId: number, status: string, convertedInvoiceId?: number) {
+  const db = await getDb(); if (!db) return;
+  const set: any = { status };
+  if (convertedInvoiceId) set.convertedInvoiceId = convertedInvoiceId;
+  await db.update(proformaInvoices).set(set).where(and(eq(proformaInvoices.id, id), eq(proformaInvoices.companyId, companyId)));
+}
+
+export async function deleteProformaInvoice(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(proformaInvoices).where(and(eq(proformaInvoices.id, id), eq(proformaInvoices.companyId, companyId)));
+}
+
+// ─── Inventory Batches ──────────────────────────────────────────────────────
+export async function getItemBatches(companyId: number, inventoryItemId?: number) {
+  const db = await getDb(); if (!db) return [];
+  if (inventoryItemId) {
+    return db.select().from(inventoryBatches).where(and(eq(inventoryBatches.companyId, companyId), eq(inventoryBatches.inventoryItemId, inventoryItemId))).orderBy(desc(inventoryBatches.createdAt));
+  }
+  return db.select().from(inventoryBatches).where(eq(inventoryBatches.companyId, companyId)).orderBy(desc(inventoryBatches.createdAt));
+}
+
+export async function createBatch(companyId: number, data: {
+  inventoryItemId: number; batchNumber: string; manufacturingDate?: string;
+  expiryDate?: string; quantity?: number; purchasePrice?: string;
+  sellingPrice?: string; notes?: string;
+}) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(inventoryBatches).values({ ...data, companyId } as any);
+}
+
+export async function updateBatchStatus(id: number, companyId: number, status: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(inventoryBatches).set({ status } as any).where(and(eq(inventoryBatches.id, id), eq(inventoryBatches.companyId, companyId)));
+}
+
+export async function deleteBatch(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(inventoryBatches).where(and(eq(inventoryBatches.id, id), eq(inventoryBatches.companyId, companyId)));
+}
+
+// ─── Approval Workflows ─────────────────────────────────────────────────────
+export async function listApprovals(companyId: number, status?: string) {
+  const db = await getDb(); if (!db) return [];
+  if (status) {
+    return db.select().from(approvalWorkflows).where(and(eq(approvalWorkflows.companyId, companyId), eq(approvalWorkflows.status, status))).orderBy(desc(approvalWorkflows.requestedAt));
+  }
+  return db.select().from(approvalWorkflows).where(eq(approvalWorkflows.companyId, companyId)).orderBy(desc(approvalWorkflows.requestedAt));
+}
+
+export async function createApprovalRequest(companyId: number, data: {
+  entityType: string; entityId: number; entityRef?: string;
+  requestedBy?: number; requestedByName?: string;
+  approverUserId?: number; approverName?: string;
+}) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(approvalWorkflows).values({ ...data, companyId } as any);
+}
+
+export async function resolveApproval(id: number, companyId: number, status: string, comments?: string) {
+  const db = await getDb(); if (!db) return;
+  await db.update(approvalWorkflows).set({ status, comments, resolvedAt: new Date() } as any).where(and(eq(approvalWorkflows.id, id), eq(approvalWorkflows.companyId, companyId)));
+}
+
+// ─── E-Way Bills ────────────────────────────────────────────────────────────
+export async function listEwayBills(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(ewayBills).where(eq(ewayBills.companyId, companyId)).orderBy(desc(ewayBills.createdAt));
+}
+
+export async function createEwayBill(companyId: number, data: {
+  ewayBillNo?: string; invoiceId?: number; invoiceRef?: string;
+  fromGstin?: string; toGstin?: string; fromAddress?: string; toAddress?: string;
+  transporterId?: string; transporterName?: string; vehicleNo?: string;
+  distance?: string; transMode?: string; docType?: string;
+  docNo?: string; docDate?: string; totalValue?: string; hsnCode?: string;
+}) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(ewayBills).values({ ...data, companyId } as any);
+}
+
+export async function updateEwayBillNIC(id: number, companyId: number, nicData: {
+  nicEwbNo?: string; nicEwbDate?: string; nicValidUpto?: string;
+  nicStatus?: string; nicErrorMessage?: string;
+}) {
+  const db = await getDb(); if (!db) return;
+  await db.update(ewayBills).set(nicData as any).where(and(eq(ewayBills.id, id), eq(ewayBills.companyId, companyId)));
+}
+
+export async function deleteEwayBill(id: number, companyId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(ewayBills).where(and(eq(ewayBills.id, id), eq(ewayBills.companyId, companyId)));
+}
+
+// ─── Top Customers / Products Ranking ───────────────────────────────────────
+export async function getTopCustomers(companyId: number, limit = 10) {
+  const db = await getDb(); if (!db) return [];
+  const result = await db.execute(sql`
+    SELECT customerId, customerName, SUM(CAST(total AS DECIMAL(15,2))) as totalRevenue, COUNT(*) as invoiceCount
+    FROM invoices WHERE inv_companyId = ${companyId}
+    GROUP BY customerId, customerName
+    ORDER BY totalRevenue DESC LIMIT ${limit}
+  `);
+  return (result as any)[0] || [];
+}
+
+export async function getTopProducts(companyId: number, limit = 10) {
+  const db = await getDb(); if (!db) return [];
+  const result = await db.execute(sql`
+    SELECT il.description as productName, SUM(il.qty) as totalQty, SUM(CAST(il.amount AS DECIMAL(15,2))) as totalRevenue
+    FROM invoice_lines il
+    JOIN invoices i ON il.invoiceId = i.id
+    WHERE i.inv_companyId = ${companyId}
+    GROUP BY il.description
+    ORDER BY totalRevenue DESC LIMIT ${limit}
+  `);
+  return (result as any)[0] || [];
 }

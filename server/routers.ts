@@ -588,5 +588,100 @@ export const appRouter = router({
       return db.getCustomerCreditStatus(input.customerId);
     }),
   }),
+  // ─── Proforma Invoices ─────────────────────────────────────────────
+  proforma: router({
+    list: companyProcedure.query(async ({ ctx }) => db.getAllProformaInvoices(ctx.companyId)),
+    create: companyProcedure.input(z.object({
+      proformaId: z.string(), customerId: z.number().optional(), customerName: z.string().optional(),
+      date: z.string().optional(), validUntil: z.string().optional(),
+      subtotal: z.string().optional(), cgst: z.string().optional(),
+      sgst: z.string().optional(), igst: z.string().optional(), total: z.string().optional(),
+      notes: z.string().optional(), lineItems: z.any().optional(),
+      placeOfSupply: z.string().optional(), gstRate: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.createProformaInvoice(ctx.companyId, input);
+      await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || '', action: 'create', entityType: 'proforma', entityName: input.proformaId });
+    }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string(), convertedInvoiceId: z.number().optional() })).mutation(async ({ ctx, input }) => {
+      return db.updateProformaStatus(input.id, ctx.companyId, input.status, input.convertedInvoiceId);
+    }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      return db.deleteProformaInvoice(input.id, ctx.companyId);
+    }),
+  }),
+  // ─── Inventory Batches ─────────────────────────────────────────────
+  batches: router({
+    list: companyProcedure.input(z.object({ inventoryItemId: z.number().optional() }).optional()).query(async ({ ctx, input }) => {
+      return db.getItemBatches(ctx.companyId, input?.inventoryItemId);
+    }),
+    create: companyProcedure.input(z.object({
+      inventoryItemId: z.number(), batchNumber: z.string(),
+      manufacturingDate: z.string().optional(), expiryDate: z.string().optional(),
+      quantity: z.number().optional(), purchasePrice: z.string().optional(),
+      sellingPrice: z.string().optional(), notes: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.createBatch(ctx.companyId, input);
+      await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || '', action: 'create', entityType: 'batch', entityName: input.batchNumber });
+    }),
+    updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => {
+      return db.updateBatchStatus(input.id, ctx.companyId, input.status);
+    }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      return db.deleteBatch(input.id, ctx.companyId);
+    }),
+  }),
+  // ─── Approval Workflows ────────────────────────────────────────────
+  approvals: router({
+    list: companyProcedure.input(z.object({ status: z.string().optional() }).optional()).query(async ({ ctx, input }) => {
+      return db.listApprovals(ctx.companyId, input?.status);
+    }),
+    create: companyProcedure.input(z.object({
+      entityType: z.string(), entityId: z.number(), entityRef: z.string().optional(),
+      requestedBy: z.number().optional(), requestedByName: z.string().optional(),
+      approverUserId: z.number().optional(), approverName: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      return db.createApprovalRequest(ctx.companyId, input);
+    }),
+    resolve: companyProcedure.input(z.object({ id: z.number(), status: z.string(), comments: z.string().optional() })).mutation(async ({ ctx, input }) => {
+      await db.resolveApproval(input.id, ctx.companyId, input.status, input.comments);
+      await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || '', action: input.status, entityType: 'approval', entityName: `#${input.id}` });
+    }),
+  }),
+  // ─── E-Way Bills ───────────────────────────────────────────────────
+  ewayBill: router({
+    list: companyProcedure.query(async ({ ctx }) => db.listEwayBills(ctx.companyId)),
+    create: companyProcedure.input(z.object({
+      ewayBillNo: z.string().optional(), invoiceId: z.number().optional(), invoiceRef: z.string().optional(),
+      fromGstin: z.string().optional(), toGstin: z.string().optional(),
+      fromAddress: z.string().optional(), toAddress: z.string().optional(),
+      transporterId: z.string().optional(), transporterName: z.string().optional(),
+      vehicleNo: z.string().optional(), distance: z.string().optional(),
+      transMode: z.string().optional(), docType: z.string().optional(),
+      docNo: z.string().optional(), docDate: z.string().optional(),
+      totalValue: z.string().optional(), hsnCode: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.createEwayBill(ctx.companyId, input);
+      await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || '', action: 'create', entityType: 'eway_bill', entityName: input.docNo || '' });
+    }),
+    updateNIC: companyProcedure.input(z.object({
+      id: z.number(), nicEwbNo: z.string().optional(), nicEwbDate: z.string().optional(),
+      nicValidUpto: z.string().optional(), nicStatus: z.string().optional(), nicErrorMessage: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const { id, ...nicData } = input;
+      return db.updateEwayBillNIC(id, ctx.companyId, nicData);
+    }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      return db.deleteEwayBill(input.id, ctx.companyId);
+    }),
+  }),
+  // ─── Top Ranking ───────────────────────────────────────────────────
+  topRanking: router({
+    customers: companyProcedure.input(z.object({ limit: z.number().optional() }).optional()).query(async ({ ctx, input }) => {
+      return db.getTopCustomers(ctx.companyId, input?.limit || 10);
+    }),
+    products: companyProcedure.input(z.object({ limit: z.number().optional() }).optional()).query(async ({ ctx, input }) => {
+      return db.getTopProducts(ctx.companyId, input?.limit || 10);
+    }),
+  }),
 });
 export type AppRouter = typeof appRouter;

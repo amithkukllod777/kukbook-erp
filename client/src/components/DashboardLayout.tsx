@@ -83,6 +83,7 @@ const menuGroups: MenuGroup[] = [
       { icon: RotateCcw, label: "Sale Returns", path: "/sale-returns" },
       { icon: ArrowDownLeft, label: "Payments In", path: "/payments-in" },
       { icon: RotateCcw, label: "Recurring Invoices", path: "/recurring-invoices" },
+      { icon: ScrollText, label: "Proforma Invoices", path: "/proforma-invoices" },
     ],
   },
   {
@@ -102,6 +103,7 @@ const menuGroups: MenuGroup[] = [
       { icon: Barcode, label: "Barcode Generator", path: "/barcode" },
       { icon: Warehouse, label: "Warehouses", path: "/warehouses" },
       { icon: Link2, label: "Supply Chain", path: "/supply-chain" },
+      { icon: ClipboardList, label: "Batch Tracking", path: "/batch-tracking" },
     ],
   },
   {
@@ -148,6 +150,8 @@ const menuGroups: MenuGroup[] = [
       { icon: ShieldCheck, label: "Verification", path: "/verification" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
       { icon: FileText, label: "Activity Log", path: "/activity-log" },
+      { icon: ShieldCheck, label: "Approvals", path: "/approvals" },
+      { icon: TrendingUp, label: "Top Ranking", path: "/top-ranking" },
       { icon: ArrowLeftRight, label: "Import / Export", path: "/import-export" },
       { icon: Palette, label: "Invoice Themes", path: "/invoice-themes" },
       { icon: Building, label: "Multi-Firm", path: "/multi-firm" },

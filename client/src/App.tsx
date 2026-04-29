@@ -52,6 +52,10 @@ const Barcode = lazy(() => import("./pages/Barcode"));
 const RecurringInvoices = lazy(() => import("./pages/RecurringInvoices"));
 const ActivityLog = lazy(() => import("./pages/ActivityLog"));
 const BankReconciliation = lazy(() => import("./pages/BankReconciliation"));
+const ProformaInvoices = lazy(() => import("./pages/ProformaInvoices"));
+const BatchTracking = lazy(() => import("./pages/BatchTracking"));
+const Approvals = lazy(() => import("./pages/Approvals"));
+const TopRanking = lazy(() => import("./pages/TopRanking"));
 const PaymentReminders = lazy(() => import("./pages/PaymentReminders"));
 const Messaging = lazy(() => import("./pages/Messaging"));
 const MultiFirm = lazy(() => import("./pages/MultiFirm"));
@@ -112,6 +116,10 @@ function CompanyRoutes() {
           <Route path="/recurring-invoices" component={RecurringInvoices} />
           <Route path="/activity-log" component={ActivityLog} />
           <Route path="/bank-reconciliation" component={BankReconciliation} />
+          <Route path="/proforma-invoices" component={ProformaInvoices} />
+          <Route path="/batch-tracking" component={BatchTracking} />
+          <Route path="/approvals" component={Approvals} />
+          <Route path="/top-ranking" component={TopRanking} />
           <Route path="/payment-reminders" component={PaymentReminders} />
           <Route path="/messaging" component={Messaging} />
           <Route path="/multi-firm" component={MultiFirm} />
