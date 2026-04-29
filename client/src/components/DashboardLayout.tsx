@@ -67,6 +67,7 @@ const menuGroups: MenuGroup[] = [
       { icon: ScrollText, label: "General Ledger", path: "/general-ledger" },
       { icon: Wallet, label: "Cash & Bank", path: "/cash-bank" },
       { icon: CreditCard, label: "Cash/Bank Book", path: "/cash-bank-book" },
+      { icon: FileCheck, label: "Bank Reconciliation", path: "/bank-reconciliation" },
       { icon: BarChart3, label: "Financial Reports", path: "/reports" },
       { icon: FileSpreadsheet, label: "Advanced Reports", path: "/advanced-reports" },
       { icon: IndianRupee, label: "GST Reports", path: "/gst-reports" },
@@ -81,6 +82,7 @@ const menuGroups: MenuGroup[] = [
       { icon: FileCheck, label: "Estimates", path: "/estimates" },
       { icon: RotateCcw, label: "Sale Returns", path: "/sale-returns" },
       { icon: ArrowDownLeft, label: "Payments In", path: "/payments-in" },
+      { icon: RotateCcw, label: "Recurring Invoices", path: "/recurring-invoices" },
     ],
   },
   {
@@ -145,6 +147,7 @@ const menuGroups: MenuGroup[] = [
       { icon: UserPlus, label: "Invite Members", path: "/invite-members" },
       { icon: ShieldCheck, label: "Verification", path: "/verification" },
       { icon: Settings, label: "Settings", path: "/admin/settings" },
+      { icon: FileText, label: "Activity Log", path: "/activity-log" },
       { icon: ArrowLeftRight, label: "Import / Export", path: "/import-export" },
       { icon: Palette, label: "Invoice Themes", path: "/invoice-themes" },
       { icon: Building, label: "Multi-Firm", path: "/multi-firm" },

@@ -223,6 +223,28 @@ vi.mock("./db", () => {
     // Verification functions
     createVerificationCode: vi.fn().mockResolvedValue({ code: '123456', expiresAt: new Date(Date.now() + 10*60*1000) }),
     verifyCode: vi.fn().mockResolvedValue({ success: true, message: 'Verified successfully' }),
+    // Activity logging
+    logActivity: vi.fn().mockResolvedValue(undefined),
+    listActivityLogs: vi.fn().mockResolvedValue([]),
+    // Partial payments
+    recordPartialPayment: vi.fn().mockResolvedValue({ paid: 5000, due: 10000, status: 'Sent' }),
+    getInvoicePayments: vi.fn().mockResolvedValue([]),
+    getOverdueInvoices: vi.fn().mockResolvedValue([]),
+    // Recurring invoices
+    listRecurringInvoices: vi.fn().mockResolvedValue([]),
+    createRecurringInvoice: vi.fn().mockResolvedValue(undefined),
+    updateRecurringInvoice: vi.fn().mockResolvedValue(undefined),
+    deleteRecurringInvoice: vi.fn().mockResolvedValue(undefined),
+    // Bank reconciliation
+    listBankReconciliations: vi.fn().mockResolvedValue([]),
+    createBankReconciliation: vi.fn().mockResolvedValue(undefined),
+    addReconciliationItem: vi.fn().mockResolvedValue(undefined),
+    matchReconciliationItem: vi.fn().mockResolvedValue(undefined),
+    finalizeBankReconciliation: vi.fn().mockResolvedValue(undefined),
+    getReconciliationDetail: vi.fn().mockResolvedValue({ reconciliation: {}, items: [] }),
+    // Credit limit
+    setCreditLimit: vi.fn().mockResolvedValue(undefined),
+    getCustomerCreditStatus: vi.fn().mockResolvedValue({ creditLimit: 50000, currentBalance: 15000, available: 35000, exceeded: false }),
   };
 });
 

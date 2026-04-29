@@ -38,6 +38,7 @@ const emptyForm = {
   name: "", email: "", phone: "", gstin: "", pan: "",
   billingAddress1: "", billingAddress2: "", billingCity: "", billingState: "", billingPincode: "",
   shippingAddress1: "", shippingAddress2: "", shippingCity: "", shippingState: "", shippingPincode: "",
+  creditLimit: "",
 };
 
 const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(n);
@@ -75,7 +76,7 @@ export default function Customers() {
       billingAddress1: c.billingAddress1 || "", billingAddress2: c.billingAddress2 || "",
       billingCity: c.billingCity || "", billingState: c.billingState || "", billingPincode: c.billingPincode || "",
       shippingAddress1: c.shippingAddress1 || "", shippingAddress2: c.shippingAddress2 || "",
-      shippingCity: c.shippingCity || "", shippingState: c.shippingState || "", shippingPincode: c.shippingPincode || "",
+      shippingCity: c.shippingCity || "", shippingState: c.shippingState || "", shippingPincode: c.shippingPincode || "", creditLimit: c.creditLimit || "",
     };
     const same = f.billingAddress1 === f.shippingAddress1 && f.billingCity === f.shippingCity &&
       f.billingState === f.shippingState && f.billingPincode === f.shippingPincode && f.billingAddress1 !== "";
@@ -162,6 +163,7 @@ export default function Customers() {
                 <TableHead>Phone</TableHead>
                 <TableHead>State</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right">Credit Limit</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -176,6 +178,7 @@ export default function Customers() {
                   <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
                   <TableCell>{c.billingState || c.state || "—"}</TableCell>
                   <TableCell className="text-right font-medium">{fmt(Number(c.balance || 0))}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{c.creditLimit ? fmt(Number(c.creditLimit)) : "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
@@ -214,6 +217,15 @@ export default function Customers() {
                   <label className="text-sm font-medium">Phone</label>
                   <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+91 98765 43210" />
                 </div>
+              </div>
+            </div>
+
+            {/* Credit Limit */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Credit Limit (₹)</label>
+                <Input type="number" value={form.creditLimit} onChange={e => setForm({ ...form, creditLimit: e.target.value })} placeholder="0 = No limit" />
+                <p className="text-xs text-muted-foreground mt-1">Leave empty for no limit</p>
               </div>
             </div>
 

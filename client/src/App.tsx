@@ -49,6 +49,9 @@ const ImportExport = lazy(() => import("./pages/ImportExport"));
 const EWayBill = lazy(() => import("./pages/EWayBill"));
 const InvoiceThemes = lazy(() => import("./pages/InvoiceThemes"));
 const Barcode = lazy(() => import("./pages/Barcode"));
+const RecurringInvoices = lazy(() => import("./pages/RecurringInvoices"));
+const ActivityLog = lazy(() => import("./pages/ActivityLog"));
+const BankReconciliation = lazy(() => import("./pages/BankReconciliation"));
 const PaymentReminders = lazy(() => import("./pages/PaymentReminders"));
 const Messaging = lazy(() => import("./pages/Messaging"));
 const MultiFirm = lazy(() => import("./pages/MultiFirm"));
@@ -106,6 +109,9 @@ function CompanyRoutes() {
           <Route path="/eway-bill" component={EWayBill} />
           <Route path="/invoice-themes" component={InvoiceThemes} />
           <Route path="/barcode" component={Barcode} />
+          <Route path="/recurring-invoices" component={RecurringInvoices} />
+          <Route path="/activity-log" component={ActivityLog} />
+          <Route path="/bank-reconciliation" component={BankReconciliation} />
           <Route path="/payment-reminders" component={PaymentReminders} />
           <Route path="/messaging" component={Messaging} />
           <Route path="/multi-firm" component={MultiFirm} />

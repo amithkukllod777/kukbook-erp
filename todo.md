@@ -256,11 +256,11 @@
 - [x] BUG FIX: New user signup permission denied — fixed: (1) Onboarding sets company ID in localStorage after create, (2) addMember/removeMember changed from adminProcedure to companyProcedure with owner check, (3) subscription.update changed to protectedProcedure, (4) admin-only sidebar items hidden for non-admin users via role-based filtering
 
 ## Pending Features — High Priority (from Feature Audit)
-- [ ] Partial Payments / Due Tracking — Invoice pe partial amount receive karna, remaining due track karna
-- [ ] Recurring Invoices — Monthly auto-generate invoices for regular clients
-- [ ] Activity / Audit Log — Kisne kya change kiya, kab kiya — full tracking (DB table + UI page)
-- [ ] Bank Reconciliation — Bank statement match with recorded transactions
-- [ ] Credit Limit on Customers — Customer pe credit limit set karna, exceed hone pe warning
+- [x] Partial Payments / Due Tracking — Invoice pe partial amount receive karna, remaining due track karna
+- [x] Recurring Invoices — Monthly auto-generate invoices for regular clients
+- [x] Activity / Audit Log — Kisne kya change kiya, kab kiya — full tracking (DB table + UI page)
+- [x] Bank Reconciliation — Bank statement match with recorded transactions
+- [x] Credit Limit on Customers — Customer pe credit limit set karna, exceed hone pe warning
 
 ## Pending Features — Medium Priority (from Feature Audit)
 - [ ] Proforma Invoice — Estimate se alag, formal proforma invoice type with separate numbering
@@ -394,3 +394,6 @@
 - [x] Rename "Quantity" label to "Opening Stock"
 - [x] Rename "Cost" label to "Purchase Price" (or keep separate)
 - [x] DB migration: Add mrp, sellingPrice, purchasePrice, upcBarcode columns to inventory table
+
+## Bug Fix — White Page
+- [x] BUG: Website showing white/blank page after deployment (was browser cache issue, site working fine)

@@ -90,12 +90,13 @@ export const customers = mysqlTable("customers", {
   // Legacy fields (kept for backward compat)
   city: varchar("city", { length: 100 }),
   address: text("address"),
+  creditLimit: decimal("cust_creditLimit", { precision: 15, scale: 2 }),
+  currentBalance: decimal("cust_currentBalance", { precision: 15, scale: 2 }).default("0").notNull(),
   accountId: int("cust_accountId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
-export type Customer = typeof customers.$inferSelect;
+export type Customer = typeof customers.$inferSelect;;
 
 // ─── Invoices ───────────────────────────────────────────────────────────────
 export const invoices = mysqlTable("invoices", {
@@ -116,6 +117,8 @@ export const invoices = mysqlTable("invoices", {
   tcsRate: decimal("tcs_rate", { precision: 5, scale: 2 }).default("0").notNull(),
   tcsAmount: decimal("tcs_amount", { precision: 15, scale: 2 }).default("0").notNull(),
   tcsTotal: decimal("tcs_total", { precision: 15, scale: 2 }).default("0").notNull(),
+  paidAmount: decimal("paidAmount", { precision: 15, scale: 2 }).default("0").notNull(),
+  dueAmount: decimal("dueAmount", { precision: 15, scale: 2 }).default("0").notNull(),
   journalEntryId: int("inv_journalEntryId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -445,11 +448,11 @@ export const paymentsIn = mysqlTable("payments_in", {
   mode: varchar("pi_mode", { length: 50 }).default("Cash").notNull(),
   invoiceRef: varchar("pi_invoiceRef", { length: 20 }),
   notes: text("pi_notes"),
+  invoiceId: int("pi_invoiceId"),
   journalEntryId: int("pi_journalEntryId"),
   createdAt: timestamp("pi_createdAt").defaultNow().notNull(),
 });
-
-export type PaymentIn = typeof paymentsIn.$inferSelect;
+export type PaymentIn = typeof paymentsIn.$inferSelect;;
 
 // ─── Payments Out (Payments to Vendors) ────────────────────────────────────
 export const paymentsOut = mysqlTable("payments_out", {
@@ -632,3 +635,75 @@ export const verificationCodes = mysqlTable("verification_codes", {
   expiresAt: timestamp("vc_expiresAt").notNull(),
 });
 export type VerificationCode = typeof verificationCodes.$inferSelect;
+
+// ─── Recurring Invoices ─────────────────────────────────────────────────────
+export const recurringInvoices = mysqlTable("recurring_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId"),
+  customerId: int("customerId").notNull(),
+  customerName: varchar("customerName", { length: 200 }).notNull(),
+  frequency: mysqlEnum("frequency", ["weekly", "monthly", "quarterly", "yearly"]).default("monthly").notNull(),
+  startDate: varchar("startDate", { length: 10 }).notNull(),
+  endDate: varchar("endDate", { length: 10 }),
+  nextDueDate: varchar("nextDueDate", { length: 10 }).notNull(),
+  lastGeneratedDate: varchar("lastGeneratedDate", { length: 10 }),
+  status: mysqlEnum("status", ["active", "paused", "completed", "cancelled"]).default("active").notNull(),
+  subtotal: decimal("subtotal", { precision: 15, scale: 2 }).default("0").notNull(),
+  cgst: decimal("cgst", { precision: 15, scale: 2 }).default("0").notNull(),
+  sgst: decimal("sgst", { precision: 15, scale: 2 }).default("0").notNull(),
+  igst: decimal("igst", { precision: 15, scale: 2 }).default("0").notNull(),
+  total: decimal("total", { precision: 15, scale: 2 }).default("0").notNull(),
+  lineItems: json("lineItems"),
+  notes: text("notes"),
+  generatedCount: int("generatedCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type RecurringInvoice = typeof recurringInvoices.$inferSelect;
+
+// ─── Activity / Audit Log ───────────────────────────────────────────────────
+export const activityLogs = mysqlTable("activity_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId"),
+  userId: int("userId").notNull(),
+  userName: varchar("userName", { length: 200 }),
+  action: varchar("action", { length: 50 }).notNull(),
+  entityType: varchar("entityType", { length: 50 }).notNull(),
+  entityId: int("entityId"),
+  entityName: varchar("entityName", { length: 200 }),
+  details: json("details"),
+  ipAddress: varchar("ipAddress", { length: 50 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ActivityLog = typeof activityLogs.$inferSelect;
+
+// ─── Bank Reconciliation ────────────────────────────────────────────────────
+export const bankReconciliations = mysqlTable("bank_reconciliations", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId"),
+  accountId: int("accountId").notNull(),
+  accountName: varchar("accountName", { length: 200 }).notNull(),
+  statementDate: varchar("statementDate", { length: 10 }).notNull(),
+  statementBalance: decimal("statementBalance", { precision: 15, scale: 2 }).default("0").notNull(),
+  bookBalance: decimal("bookBalance", { precision: 15, scale: 2 }).default("0").notNull(),
+  difference: decimal("difference", { precision: 15, scale: 2 }).default("0").notNull(),
+  status: mysqlEnum("status", ["draft", "reconciled"]).default("draft").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type BankReconciliation = typeof bankReconciliations.$inferSelect;
+
+export const bankReconciliationItems = mysqlTable("bank_reconciliation_items", {
+  id: int("id").autoincrement().primaryKey(),
+  reconciliationId: int("reconciliationId").notNull(),
+  transactionDate: varchar("transactionDate", { length: 10 }).notNull(),
+  description: varchar("description", { length: 500 }),
+  referenceNo: varchar("referenceNo", { length: 100 }),
+  debit: decimal("debit", { precision: 15, scale: 2 }).default("0").notNull(),
+  credit: decimal("credit", { precision: 15, scale: 2 }).default("0").notNull(),
+  isMatched: mysqlBoolean("isMatched").default(false).notNull(),
+  matchedJournalEntryId: int("matchedJournalEntryId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type BankReconciliationItem = typeof bankReconciliationItems.$inferSelect;

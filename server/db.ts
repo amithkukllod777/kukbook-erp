@@ -9,7 +9,8 @@ import {
   saleReturns, purchaseReturns, estimates, estimateLines,
   paymentsIn, paymentsOut, cashBankAccounts, expenses, otherIncome,
   deliveryChallans, partyGroups,
-  companies, companyMembers, subscriptions, companyInvites, verificationCodes
+  companies, companyMembers, subscriptions, companyInvites, verificationCodes,
+  recurringInvoices, activityLogs, bankReconciliations, bankReconciliationItems
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1500,4 +1501,139 @@ export async function getVerificationStatus(userId: number) {
     if (r.type === 'phone') { phoneVerified = true; phone = r.target; }
   }
   return { emailVerified, phoneVerified, email, phone };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HIGH PRIORITY FEATURES — DB HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── 1. Partial Payments / Due Tracking ─────────────────────────────────────
+export async function recordPartialPayment(invoiceId: number, amount: string) {
+  const db = await getDb(); if (!db) return null;
+  const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+  if (!inv) return null;
+  const paid = Number(inv.paidAmount) + Number(amount);
+  const due = Number(inv.total) - paid;
+  const status = due <= 0 ? "Paid" : "Sent";
+  await db.update(invoices).set({
+    paidAmount: String(paid),
+    dueAmount: String(Math.max(0, due)),
+    status: status as any,
+  } as any).where(eq(invoices.id, invoiceId));
+  return { paid, due: Math.max(0, due), status };
+}
+
+export async function getInvoicePayments(invoiceId: number, companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(paymentsIn).where(
+    and(eq(paymentsIn.invoiceId, invoiceId), eq(paymentsIn.companyId, companyId))
+  );
+}
+
+export async function getOverdueInvoices(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  return db.select().from(invoices).where(
+    and(
+      eq(invoices.companyId, companyId),
+      sql`${invoices.dueDate} < ${today}`,
+      sql`${invoices.status} != 'Paid'`
+    )
+  );
+}
+
+// ─── 2. Recurring Invoices ──────────────────────────────────────────────────
+export async function createRecurringInvoice(data: any) {
+  const db = await getDb(); if (!db) return null;
+  const [result] = await db.insert(recurringInvoices).values(data);
+  return { id: result.insertId };
+}
+
+export async function listRecurringInvoices(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(recurringInvoices).where(eq(recurringInvoices.companyId, companyId)).orderBy(desc(recurringInvoices.createdAt));
+}
+
+export async function updateRecurringInvoice(id: number, data: any) {
+  const db = await getDb(); if (!db) return;
+  await db.update(recurringInvoices).set(data).where(eq(recurringInvoices.id, id));
+}
+
+export async function deleteRecurringInvoice(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.delete(recurringInvoices).where(eq(recurringInvoices.id, id));
+}
+
+// ─── 3. Activity / Audit Log ────────────────────────────────────────────────
+export async function logActivity(data: { companyId: number; userId: number; userName: string; action: string; entityType: string; entityId?: number; entityName?: string; details?: any; ipAddress?: string }) {
+  const db = await getDb(); if (!db) return;
+  await db.insert(activityLogs).values(data);
+}
+
+export async function listActivityLogs(companyId: number, limit = 100, offset = 0) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(activityLogs).where(eq(activityLogs.companyId, companyId)).orderBy(desc(activityLogs.createdAt)).limit(limit).offset(offset);
+}
+
+// ─── 4. Bank Reconciliation ─────────────────────────────────────────────────
+export async function createBankReconciliation(data: any) {
+  const db = await getDb(); if (!db) return null;
+  const [result] = await db.insert(bankReconciliations).values(data);
+  return { id: result.insertId };
+}
+
+export async function listBankReconciliations(companyId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(bankReconciliations).where(eq(bankReconciliations.companyId, companyId)).orderBy(desc(bankReconciliations.createdAt));
+}
+
+export async function getBankReconciliation(id: number) {
+  const db = await getDb(); if (!db) return null;
+  const [rec] = await db.select().from(bankReconciliations).where(eq(bankReconciliations.id, id));
+  if (!rec) return null;
+  const items = await db.select().from(bankReconciliationItems).where(eq(bankReconciliationItems.reconciliationId, id));
+  return { ...rec, items };
+}
+
+export async function addReconciliationItem(data: any) {
+  const db = await getDb(); if (!db) return null;
+  const [result] = await db.insert(bankReconciliationItems).values(data);
+  return { id: result.insertId };
+}
+
+export async function matchReconciliationItem(itemId: number, journalEntryId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.update(bankReconciliationItems).set({ isMatched: true, matchedJournalEntryId: journalEntryId } as any).where(eq(bankReconciliationItems.id, itemId));
+}
+
+export async function finalizeBankReconciliation(id: number) {
+  const db = await getDb(); if (!db) return;
+  await db.update(bankReconciliations).set({ status: "reconciled" } as any).where(eq(bankReconciliations.id, id));
+}
+
+// ─── 5. Credit Limit on Customers ──────────────────────────────────────────
+export async function setCreditLimit(customerId: number, limit: string | null) {
+  const db = await getDb(); if (!db) return;
+  await db.update(customers).set({ creditLimit: limit } as any).where(eq(customers.id, customerId));
+}
+
+export async function getCustomerCreditStatus(customerId: number) {
+  const db = await getDb(); if (!db) return null;
+  const [cust] = await db.select().from(customers).where(eq(customers.id, customerId));
+  if (!cust) return null;
+  const creditLimit = cust.creditLimit ? Number(cust.creditLimit) : null;
+  const currentBalance = Number(cust.currentBalance || 0);
+  return {
+    creditLimit,
+    currentBalance,
+    available: creditLimit ? creditLimit - currentBalance : null,
+    isOverLimit: creditLimit ? currentBalance > creditLimit : false,
+  };
+}
+
+export async function updateCustomerBalance(customerId: number, amount: number) {
+  const db = await getDb(); if (!db) return;
+  await db.update(customers).set(
+    { currentBalance: sql`cust_currentBalance + ${amount}` } as any
+  ).where(eq(customers.id, customerId));
 }

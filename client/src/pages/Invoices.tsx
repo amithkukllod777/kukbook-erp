@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Search, CheckCircle, Send, FileDown, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, Search, CheckCircle, Send, FileDown, FileSpreadsheet, IndianRupee } from "lucide-react";
 import { exportToPDF, exportToCSV, exportInvoicePDF } from "@/lib/export";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -41,6 +41,10 @@ export default function Invoices() {
   const deleteMut = trpc.invoices.delete.useMutation({ onSuccess: () => { utils.invoices.list.invalidate(); toast.success("Invoice deleted"); } });
 
   const [open, setOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payInvoice, setPayInvoice] = useState<any>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const partialPayMut = trpc.partialPayments.record.useMutation({ onSuccess: () => { utils.invoices.list.invalidate(); toast.success("Payment recorded"); setPayOpen(false); setPayAmount(""); } });
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [gstRate, setGstRate] = useState("18");
@@ -154,10 +158,10 @@ export default function Invoices() {
         </div>
         <CardContent className="p-0">
           <Table>
-            <TableHeader><TableRow><TableHead>Invoice #</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead>Due Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead className="text-right">GST</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="w-[140px]">Actions</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Invoice #</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead>Due Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Subtotal</TableHead><TableHead className="text-right">GST</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Paid</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="w-[160px]">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
-              {isLoading ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-              : filtered.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No invoices found</TableCell></TableRow>
+              {isLoading ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+              : filtered.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No invoices found</TableCell></TableRow>
               : filtered.map((inv: any) => {
                 const invGst = Number(inv.cgst) + Number(inv.sgst) + Number(inv.igst);
                 return (
@@ -172,11 +176,16 @@ export default function Invoices() {
                       {invGst > 0 ? fmt(invGst) : "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{fmt(Number(inv.total))}</TableCell>
+                    <TableCell className="text-right tabular-nums text-green-600">{fmt(Number(inv.paidAmount || 0))}</TableCell>
+                    <TableCell className="text-right tabular-nums text-orange-600">{fmt(Number(inv.dueAmount || inv.total))}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" title="Download PDF" onClick={() => exportInvoicePDF(inv)}><FileDown className="h-4 w-4 text-primary" /></Button>
                         {inv.status === "Draft" && <Button variant="ghost" size="icon" title="Mark as Sent" onClick={() => updateStatusMut.mutate({ id: inv.id, status: "Sent" })}><Send className="h-4 w-4 text-blue-600" /></Button>}
-                        {(inv.status === "Sent" || inv.status === "Overdue") && <Button variant="ghost" size="icon" title="Mark as Paid" onClick={() => updateStatusMut.mutate({ id: inv.id, status: "Paid" })}><CheckCircle className="h-4 w-4 text-emerald-600" /></Button>}
+                        {(inv.status === "Sent" || inv.status === "Overdue") && <>
+                          <Button variant="ghost" size="icon" title="Record Partial Payment" onClick={() => { setPayInvoice(inv); setPayAmount(""); setPayOpen(true); }}><IndianRupee className="h-4 w-4 text-amber-600" /></Button>
+                          <Button variant="ghost" size="icon" title="Mark as Fully Paid" onClick={() => updateStatusMut.mutate({ id: inv.id, status: "Paid" })}><CheckCircle className="h-4 w-4 text-emerald-600" /></Button>
+                        </>}
                         <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete?")) deleteMut.mutate({ id: inv.id }); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     </TableCell>
@@ -302,6 +311,32 @@ export default function Invoices() {
             </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={createMut.isPending}>Create Invoice</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Partial Payment Dialog */}
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
+          {payInvoice && (
+            <div className="space-y-4">
+              <div className="text-sm space-y-1">
+                <div>Invoice: <span className="font-medium">{payInvoice.invoiceId}</span></div>
+                <div>Customer: <span className="font-medium">{payInvoice.customerName}</span></div>
+                <div>Total: <span className="font-medium">{fmt(Number(payInvoice.total))}</span></div>
+                <div>Already Paid: <span className="text-green-600 font-medium">{fmt(Number(payInvoice.paidAmount || 0))}</span></div>
+                <div>Due: <span className="text-orange-600 font-medium">{fmt(Number(payInvoice.dueAmount || payInvoice.total))}</span></div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Payment Amount (₹)</label>
+                <Input type="number" placeholder="Enter amount" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
+                <Button onClick={() => { if (!payAmount || Number(payAmount) <= 0) { toast.error("Enter valid amount"); return; } partialPayMut.mutate({ invoiceId: payInvoice.id, amount: payAmount }); }} disabled={partialPayMut.isPending}>Record Payment</Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
