@@ -12,6 +12,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 
 // Lazy-loaded pages
 const Landing = lazy(() => import("./pages/Landing"));
+const InvoicePayment = lazy(() => import("./pages/InvoicePayment"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Accounts = lazy(() => import("./pages/Accounts"));
@@ -230,6 +231,8 @@ function CompanyGate() {
 
   return (
     <Switch>
+      {/* Public invoice payment route */}
+      <Route path="/pay/:token" component={InvoicePayment} />
       {/* Accept invite route (authenticated) */}
       <Route path="/invite/:token" component={AcceptInvite} />
 
@@ -267,6 +270,7 @@ function AppRouter() {
     return (
       <Suspense fallback={<PageLoader />}>
         <Switch>
+          <Route path="/pay/:token" component={InvoicePayment} />
           <Route path="/invite/:token" component={AcceptInvite} />
           <Route><Landing /></Route>
         </Switch>

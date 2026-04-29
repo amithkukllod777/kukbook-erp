@@ -31,13 +31,14 @@ import {
   ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, TrendingUp,
   FileSpreadsheet, IndianRupee, UsersRound, ScrollText, ArrowLeftRight,
   FileBarChart, Palette, Barcode, Bell, MessageSquare, Building, Crown,
-  ChevronsUpDown, Check, UserPlus, ShieldCheck
+  ChevronsUpDown, Check, UserPlus, ShieldCheck, Globe
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useCompany } from "@/contexts/CompanyContext";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
+import { useTranslation } from "react-i18next";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type MenuItem = {
@@ -161,6 +162,20 @@ const menuGroups: MenuGroup[] = [
 ];
 
 const allMenuItems = menuGroups.flatMap(g => g.items);
+
+const navI18nMap: Record<string, string> = {
+  "Overview": "nav.overview",
+  "Accounting": "nav.accounting",
+  "Sales": "nav.sales",
+  "Purchases": "nav.purchases",
+  "Inventory & Warehouse": "nav.inventory",
+  "HR & Payroll": "nav.hr",
+  "Delivery": "nav.delivery",
+  "Communication": "nav.communication",
+  "Income & Expenses": "nav.income",
+  "Parties": "nav.parties",
+  "Administration": "nav.administration",
+};
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 260;
@@ -294,6 +309,7 @@ function DashboardLayoutContent({
   setSidebarWidth,
 }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -360,7 +376,7 @@ function DashboardLayoutContent({
                   <SidebarGroup className="py-0">
                     <CollapsibleTrigger asChild>
                       <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground/80 cursor-pointer flex items-center justify-between px-3 py-2">
-                        <span>{group.label}</span>
+                        <span>{navI18nMap[group.label] ? t(navI18nMap[group.label]) : group.label}</span>
                         <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/collapsible:rotate-[-90deg]" />
                       </SidebarGroupLabel>
                     </CollapsibleTrigger>
@@ -410,6 +426,17 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => {
+                    const newLang = i18n.language === "en" ? "hi" : "en";
+                    i18n.changeLanguage(newLang);
+                    localStorage.setItem("kukbook-lang", newLang);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  <span>{i18n.language === "en" ? "हिंदी" : "English"}</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"

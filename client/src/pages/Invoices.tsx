@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Search, CheckCircle, Send, FileDown, FileSpreadsheet, IndianRupee } from "lucide-react";
+import { Plus, Trash2, Search, CheckCircle, Send, FileDown, FileSpreadsheet, IndianRupee, Share2 } from "lucide-react";
 import { exportToPDF, exportToCSV, exportInvoicePDF } from "@/lib/export";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -45,6 +45,7 @@ export default function Invoices() {
   const [payInvoice, setPayInvoice] = useState<any>(null);
   const [payAmount, setPayAmount] = useState("");
   const partialPayMut = trpc.partialPayments.record.useMutation({ onSuccess: () => { utils.invoices.list.invalidate(); toast.success("Payment recorded"); setPayOpen(false); setPayAmount(""); } });
+  const genPayLinkMut = trpc.partialPayments.generatePaymentLink.useMutation({ onSuccess: (data) => { const url = `${window.location.origin}${data.url}`; navigator.clipboard.writeText(url).then(() => toast.success("Payment link copied!")).catch(() => toast.info(`Payment link: ${url}`)); } });
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [gstRate, setGstRate] = useState("18");
@@ -181,6 +182,7 @@ export default function Invoices() {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" title="Download PDF" onClick={() => exportInvoicePDF(inv)}><FileDown className="h-4 w-4 text-primary" /></Button>
+                        {inv.status !== "Paid" && <Button variant="ghost" size="icon" title="Share Payment Link" onClick={() => genPayLinkMut.mutate({ invoiceId: inv.id, companyId: activeCompany?.id || 0 })}><Share2 className="h-4 w-4 text-violet-600" /></Button>}
                         {inv.status === "Draft" && <Button variant="ghost" size="icon" title="Mark as Sent" onClick={() => updateStatusMut.mutate({ id: inv.id, status: "Sent" })}><Send className="h-4 w-4 text-blue-600" /></Button>}
                         {(inv.status === "Sent" || inv.status === "Overdue") && <>
                           <Button variant="ghost" size="icon" title="Record Partial Payment" onClick={() => { setPayInvoice(inv); setPayAmount(""); setPayOpen(true); }}><IndianRupee className="h-4 w-4 text-amber-600" /></Button>

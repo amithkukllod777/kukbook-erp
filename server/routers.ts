@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, adminProcedure, companyProcedure, 
 import { z } from "zod";
 import * as db from "./db";
 import { notifyOwner } from "./_core/notification";
+import { broadcastToCompany } from "./sse";
 
 export const appRouter = router({
   system: systemRouter,
@@ -84,7 +85,7 @@ export const appRouter = router({
       subtotal: z.string(), cgst: z.string().default('0'), sgst: z.string().default('0'), igst: z.string().default('0'), total: z.string(),
       lines: z.array(z.object({ description: z.string(), hsnCode: z.string().optional(), qty: z.number(), rate: z.string(), discount: z.string().optional(), gstRate: z.string().optional(), amount: z.string() })),
       tcsSection: z.string().optional(), tcsRate: z.string().optional(), tcsAmount: z.string().optional(), tcsTotal: z.string().optional()
-    })).mutation(async ({ ctx, input }) => { await db.createInvoice(ctx.companyId, input); await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || "User", action: "create", entityType: "invoice", entityName: input.customerName }); return { success: true }; }),
+    })).mutation(async ({ ctx, input }) => { await db.createInvoice(ctx.companyId, input); await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || "User", action: "create", entityType: "invoice", entityName: input.customerName }); broadcastToCompany(ctx.companyId, { type: "invoice_created", data: { customerName: input.customerName } }); return { success: true }; }),
     tcsSections: publicProcedure.query(() => db.TCS_SECTIONS),
     updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => {
       await db.updateInvoiceStatus(input.id, ctx.companyId, input.status);
@@ -100,7 +101,7 @@ export const appRouter = router({
       }
       return { success: true };
     }),
-    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteInvoice(input.id, ctx.companyId); return { success: true }; }),
+    delete: companyProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => { await db.deleteInvoice(input.id, ctx.companyId); broadcastToCompany(ctx.companyId, { type: "invoice_deleted", data: { id: input.id } }); return { success: true }; }),
   }),
 
   // ─── Sale Returns ───────────────────────────────────────────────────
@@ -539,6 +540,11 @@ export const appRouter = router({
   }),
   // ═══ HIGH PRIORITY FEATURES ═══
   partialPayments: router({
+    generatePaymentLink: protectedProcedure.input(z.object({ invoiceId: z.number(), companyId: z.number() })).mutation(async ({ input }) => {
+      const { generateInvoicePaymentToken } = await import("./invoice-payment");
+      const token = await generateInvoicePaymentToken(input.invoiceId, input.companyId);
+      return { token, url: `/pay/${token}` };
+    }),
     record: protectedProcedure.input(z.object({ invoiceId: z.number(), amount: z.string() })).mutation(async ({ input }) => {
       return db.recordPartialPayment(input.invoiceId, input.amount);
     }),

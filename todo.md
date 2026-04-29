@@ -276,10 +276,10 @@
 - [ ] Multi-Currency Support — USD, EUR, GBP support with exchange rates and conversion
 - [ ] Bank Feeds Integration — Auto-import bank transactions (Plaid/Yodlee style)
 - [ ] E-Commerce Integration — Amazon/Shopify order sync with inventory
-- [ ] PWA / Offline Mode — Progressive Web App for offline access and mobile install
-- [ ] Real-Time Updates — WebSocket/SSE for live data sync across tabs/users
+- [x] PWA / Offline Mode — Progressive Web App for offline access and mobile install
+- [x] Real-Time Updates — WebSocket/SSE for live data sync across tabs/users
 - [x] Audit Trail Report — Downloadable audit log report (PDF/CSV export of activity log)
-- [ ] Multi-Language Support — Hindi, Gujarati, Marathi, Tamil etc. UI translations
+- [x] Multi-Language Support — Hindi i18n with LanguageSwitcher component
 
 ## Partial Features — Need Completion (from Feature Audit)
 - [ ] Payment Reminders — Real SMS/WhatsApp/email sending (currently UI-only, no actual delivery)
@@ -287,8 +287,8 @@
 - [ ] Invoice Themes — Apply selected template to actual PDF export (currently preview-only, not saved to DB)
 - [ ] E-Way Bill — NIC API backend integration (currently frontend-only form, no API call or DB save)
 - [x] Top Customers/Products — Dashboard ranking widget (Top 5 customers & products)
-- [ ] Real-time Updates — WebSocket/SSE live sync (currently data refreshes only on page navigation)
-- [ ] Razorpay/Paytm — Customer payment collection integration (currently only Stripe for subscriptions)
+- [x] Real-time Updates — SSE live sync implemented (server/sse.ts + useSSE hook)
+- [x] Razorpay — Customer invoice payment collection (Pay Now link + Razorpay checkout)
 - [ ] WhatsApp/Email — Real API integration for message delivery (currently UI compose form only)
 - [ ] Multi-Currency — Support beyond INR (currently INR-only throughout)
 - [x] Bank Reconciliation — Full implementation (DB + backend + frontend page)
@@ -403,22 +403,22 @@
 - [x] Audit Trail Report — PDF/CSV export of Activity Log
 - [x] Top Customers/Products widget on Dashboard page (Top 5 each)
 - [x] Invoice Due Alerts — Overdue invoices warning widget on Dashboard
-- [ ] Multi-Language Support — i18n framework (Hindi at minimum)
-- [ ] PWA / Offline Mode — service worker + manifest for mobile install
-- [ ] Real-Time Updates — SSE (Server-Sent Events) for live data sync
+- [x] Multi-Language Support — i18n framework (Hindi + English with LanguageSwitcher)
+- [x] PWA / Offline Mode — service worker + manifest for mobile install
+- [x] Real-Time Updates — SSE (Server-Sent Events) for live data sync
 
 ## Razorpay Payment Gateway Integration
-- [ ] DB: payment_gateway_config table (companyId, provider, keyId, keySecret, webhookSecret, isActive)
-- [ ] DB: online_payments table (companyId, invoiceId, razorpayOrderId, razorpayPaymentId, amount, status, paidAt)
-- [ ] Backend: Admin API to save/update Razorpay credentials per company
-- [ ] Backend: Create Razorpay order for invoice (POST /api/razorpay/create-order)
-- [ ] Backend: Verify Razorpay payment signature (POST /api/razorpay/verify-payment)
-- [ ] Backend: Razorpay webhook handler (POST /api/razorpay/webhook)
-- [ ] Frontend: Admin Settings → Payment Gateway section (Key ID, Key Secret input, test/live toggle)
-- [ ] Frontend: Customer invoice payment page (Pay Now button → Razorpay checkout popup)
-- [ ] Frontend: Payment success/failure handling with toast notifications
-- [ ] Auto-mark invoice as Paid when Razorpay payment succeeds
-- [ ] Payment history in invoice detail (show online payment records)
+- [x] DB: payment_gateway_config table (companyId, provider, keyId, keySecret, webhookSecret, isActive)
+- [x] DB: online_payments table (companyId, invoiceId, razorpayOrderId, razorpayPaymentId, amount, status, paidAt)
+- [x] Backend: Admin API to save/update Razorpay credentials per company
+- [x] Backend: Create Razorpay order for invoice (POST /api/razorpay/create-order)
+- [x] Backend: Verify Razorpay payment signature (POST /api/razorpay/verify-payment)
+- [x] Backend: Razorpay webhook handler (POST /api/razorpay/webhook)
+- [x] Frontend: Admin Settings → Payment Gateway section (Key ID, Key Secret input, test/live toggle)
+- [x] Frontend: Customer invoice payment page (Pay Now button → Razorpay checkout popup)
+- [x] Frontend: Payment success/failure handling with toast notifications
+- [x] Auto-mark invoice as Paid when Razorpay payment succeeds
+- [x] Payment history in invoice detail (show online payment records)
 
 ## Razorpay Payment Gateway — Subscription Plan Purchase
 - [x] DB: razorpay_payments table (companyId, userId, planId, razorpayOrderId, razorpayPaymentId, amount, currency, status, paidAt)

@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IndianRupee, TrendingUp, Landmark, Receipt, ShoppingCart, Package, AlertTriangle, Crown, Trophy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,12 +11,13 @@ const fmt = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", c
 const COLORS = ["oklch(0.588 0.200 260)", "oklch(0.600 0.200 145)", "oklch(0.650 0.180 50)", "oklch(0.550 0.200 310)", "oklch(0.600 0.200 25)", "oklch(0.500 0.150 200)"];
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { data, isLoading } = trpc.dashboard.getData.useQuery();
 
   if (isLoading || !data) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("dashboard.title")}</h1>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}><CardContent className="p-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
@@ -26,12 +28,12 @@ export default function Dashboard() {
   }
 
   const kpis = [
-    { label: "Revenue", value: fmt(data.totalRevenue), icon: IndianRupee, color: "text-emerald-600" },
-    { label: "Net Income", value: fmt(data.netIncome), icon: TrendingUp, color: "text-blue-600" },
-    { label: "Total Assets", value: fmt(data.totalAssets), icon: Landmark, color: "text-violet-600" },
-    { label: "AR Outstanding", value: fmt(data.arOutstanding), icon: Receipt, color: "text-amber-600" },
-    { label: "AP Outstanding", value: fmt(data.apOutstanding), icon: ShoppingCart, color: "text-rose-600" },
-    { label: "Inventory Value", value: fmt(data.inventoryValue), icon: Package, color: "text-cyan-600" },
+    { label: t("dashboard.revenue"), value: fmt(data.totalRevenue), icon: IndianRupee, color: "text-emerald-600" },
+    { label: t("dashboard.netIncome"), value: fmt(data.netIncome), icon: TrendingUp, color: "text-blue-600" },
+    { label: t("dashboard.totalAssets"), value: fmt(data.totalAssets), icon: Landmark, color: "text-violet-600" },
+    { label: t("dashboard.arOutstanding"), value: fmt(data.arOutstanding), icon: Receipt, color: "text-amber-600" },
+    { label: t("dashboard.apOutstanding"), value: fmt(data.apOutstanding), icon: ShoppingCart, color: "text-rose-600" },
+    { label: t("dashboard.inventoryValue"), value: fmt(data.inventoryValue), icon: Package, color: "text-cyan-600" },
   ];
 
   const revenueExpenseData = [
@@ -52,7 +54,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("dashboard.title")}</h1>
         <p className="text-muted-foreground text-sm mt-1">Business overview and key performance indicators</p>
       </div>
 
@@ -75,7 +77,7 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Revenue vs Expenses</CardTitle>
+            <CardTitle className="text-base font-semibold">{t("dashboard.revenueVsExpenses")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
@@ -96,7 +98,7 @@ export default function Dashboard() {
 
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Expense Breakdown</CardTitle>
+            <CardTitle className="text-base font-semibold">{t("dashboard.expenseBreakdown")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
@@ -120,7 +122,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Low Stock Alerts
+              {t("dashboard.lowStockAlert")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -150,7 +152,7 @@ export default function Dashboard() {
         {/* Upcoming Bills */}
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Upcoming Bills</CardTitle>
+            <CardTitle className="text-base font-semibold">{t("dashboard.upcomingBills")}</CardTitle>
           </CardHeader>
           <CardContent>
             {data.upcomingBills.length === 0 ? (
@@ -185,13 +187,14 @@ export default function Dashboard() {
 }
 
 function TopCustomersWidget() {
+  const { t } = useTranslation();
   const { data: customers = [] } = trpc.topRanking.customers.useQuery({ limit: 5 });
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Crown className="h-4 w-4 text-amber-500" />
-          Top Customers by Revenue
+          {t("dashboard.topCustomers")}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -219,13 +222,14 @@ function TopCustomersWidget() {
 }
 
 function TopProductsWidget() {
+  const { t } = useTranslation();
   const { data: products = [] } = trpc.topRanking.products.useQuery({ limit: 5 });
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Trophy className="h-4 w-4 text-indigo-500" />
-          Top Products by Sales
+          {t("dashboard.topProducts")}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -253,6 +257,7 @@ function TopProductsWidget() {
 }
 
 function OverdueInvoicesWidget() {
+  const { t } = useTranslation();
   const { data: invoices = [] } = trpc.invoices.list.useQuery();
   const overdue = invoices.filter((inv: any) => inv.status === 'Overdue' || (inv.status !== 'Paid' && inv.dueDate && new Date(inv.dueDate) < new Date()));
   if (overdue.length === 0) return null;
@@ -261,7 +266,7 @@ function OverdueInvoicesWidget() {
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4" />
-          Overdue Invoices ({overdue.length})
+          {t("dashboard.overdueInvoices")} ({overdue.length})
         </CardTitle>
       </CardHeader>
       <CardContent>
