@@ -1061,6 +1061,12 @@ export async function assignDelivery(id: number, companyId: number, staffId: num
 }
 
 // ─── Settings ───────────────────────────────────────────────────────────────
+export async function getSetting(companyId: number, key: string): Promise<string | null> {
+  const db = await getDb(); if (!db) return null;
+  const rows = await db.select().from(settings).where(and(eq(settings.key, key), eq(settings.companyId, companyId))).limit(1);
+  return rows[0]?.value || null;
+}
+
 export async function getAllSettings(companyId: number) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(settings).where(eq(settings.companyId, companyId));

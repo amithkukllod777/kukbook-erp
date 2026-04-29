@@ -406,3 +406,29 @@
 - [ ] Multi-Language Support — i18n framework (Hindi at minimum)
 - [ ] PWA / Offline Mode — service worker + manifest for mobile install
 - [ ] Real-Time Updates — SSE (Server-Sent Events) for live data sync
+
+## Razorpay Payment Gateway Integration
+- [ ] DB: payment_gateway_config table (companyId, provider, keyId, keySecret, webhookSecret, isActive)
+- [ ] DB: online_payments table (companyId, invoiceId, razorpayOrderId, razorpayPaymentId, amount, status, paidAt)
+- [ ] Backend: Admin API to save/update Razorpay credentials per company
+- [ ] Backend: Create Razorpay order for invoice (POST /api/razorpay/create-order)
+- [ ] Backend: Verify Razorpay payment signature (POST /api/razorpay/verify-payment)
+- [ ] Backend: Razorpay webhook handler (POST /api/razorpay/webhook)
+- [ ] Frontend: Admin Settings → Payment Gateway section (Key ID, Key Secret input, test/live toggle)
+- [ ] Frontend: Customer invoice payment page (Pay Now button → Razorpay checkout popup)
+- [ ] Frontend: Payment success/failure handling with toast notifications
+- [ ] Auto-mark invoice as Paid when Razorpay payment succeeds
+- [ ] Payment history in invoice detail (show online payment records)
+
+## Razorpay Payment Gateway — Subscription Plan Purchase
+- [x] DB: razorpay_payments table (companyId, userId, planId, razorpayOrderId, razorpayPaymentId, amount, currency, status, paidAt)
+- [x] Backend: Admin API to save Razorpay Key ID & Key Secret in platform settings
+- [x] Backend: Create Razorpay order for plan purchase (amount based on selected plan)
+- [x] Backend: Verify Razorpay payment signature after checkout
+- [x] Backend: On successful payment → activate subscription (update company plan + subscription dates)
+- [x] Backend: Razorpay webhook handler for payment.captured / payment.failed events
+- [x] Frontend: Admin Settings → Payment Gateway section (Razorpay Key ID, Key Secret, Test/Live toggle)
+- [x] Frontend: Subscription page → "Pay with Razorpay" button alongside existing Stripe option
+- [x] Frontend: Razorpay checkout popup integration (load razorpay script, open checkout)
+- [x] Frontend: Payment success → show confirmation + redirect to dashboard
+- [x] Frontend: Payment failure → show error toast + retry option

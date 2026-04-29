@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +27,27 @@ const plans = [
   },
 ];
 
+// Load Razorpay script dynamically
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (document.getElementById("razorpay-script")) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "razorpay-script";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function Subscription() {
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-
   const { activeCompany } = useCompany();
+
   const { data: trialData } = trpc.subscription.trialStatus.useQuery(
     { companyId: activeCompany?.id ?? 0 },
     { enabled: !!activeCompany }
@@ -40,13 +56,38 @@ export default function Subscription() {
     { companyId: activeCompany?.id ?? 0 },
     { enabled: !!activeCompany }
   );
+  const { data: razorpayKey } = trpc.subscription.razorpayKeyId.useQuery(
+    { companyId: activeCompany?.id ?? 0 },
+    { enabled: !!activeCompany }
+  );
 
-  const checkout = trpc.subscription.createCheckout.useMutation({
+  const razorpayOrder = trpc.subscription.razorpayCreateOrder.useMutation({
+    onError: (err) => {
+      toast.error(`Payment failed: ${err.message}`);
+      setLoadingPlan(null);
+    },
+  });
+
+  const razorpayVerify = trpc.subscription.razorpayVerify.useMutation({
+    onSuccess: () => {
+      toast.success("Payment successful! Subscription activated.");
+      setLoadingPlan(null);
+      // Refresh subscription data
+      window.location.reload();
+    },
+    onError: (err) => {
+      toast.error(`Verification failed: ${err.message}`);
+      setLoadingPlan(null);
+    },
+  });
+
+  const stripeCheckout = trpc.subscription.createCheckout.useMutation({
     onSuccess: (data) => {
       if (data.url) {
         toast.info("Redirecting to Stripe checkout...");
         window.open(data.url, "_blank");
       }
+      setLoadingPlan(null);
     },
     onError: (err) => {
       toast.error(`Checkout failed: ${err.message}`);
@@ -59,13 +100,62 @@ export default function Subscription() {
   const trialTotal = 30;
   const status = trialData?.status || "trial";
 
-  const handleChoosePlan = (planId: string) => {
-    if (!activeCompany) {
-      toast.error("Please create a company first");
-      return;
-    }
+  const isRazorpayAvailable = !!razorpayKey?.keyId;
+
+  const handleRazorpayPayment = async (planId: string) => {
+    if (!activeCompany) { toast.error("Please create a company first"); return; }
     setLoadingPlan(planId);
-    checkout.mutate({
+
+    try {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) { toast.error("Failed to load Razorpay. Please try again."); setLoadingPlan(null); return; }
+
+      const orderData = await razorpayOrder.mutateAsync({
+        companyId: activeCompany.id,
+        plan: planId,
+        interval,
+      });
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: orderData.companyName,
+        description: orderData.description,
+        order_id: orderData.orderId,
+        prefill: orderData.prefill,
+        theme: { color: "#2563eb" },
+        handler: function (response: any) {
+          // Verify payment on server
+          razorpayVerify.mutate({
+            companyId: activeCompany.id,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+            plan: planId,
+            interval,
+          });
+        },
+        modal: {
+          ondismiss: function () {
+            setLoadingPlan(null);
+            toast.info("Payment cancelled");
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      toast.error(err.message || "Payment failed");
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleStripePayment = (planId: string) => {
+    if (!activeCompany) { toast.error("Please create a company first"); return; }
+    setLoadingPlan(planId);
+    stripeCheckout.mutate({
       companyId: activeCompany.id,
       plan: planId,
       interval,
@@ -73,37 +163,41 @@ export default function Subscription() {
     });
   };
 
+  const handleChoosePlan = (planId: string) => {
+    if (isRazorpayAvailable) {
+      handleRazorpayPayment(planId);
+    } else {
+      handleStripePayment(planId);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><CreditCard className="h-6 w-6" />Subscription</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your subscription plan and billing for {activeCompany?.name || "your company"}</p>
+        <h1 className="text-2xl font-bold tracking-tight">Subscription Plans</h1>
+        <p className="text-sm text-muted-foreground mt-1">Choose the right plan for your business</p>
       </div>
 
-      {/* Current Plan Status */}
-      <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge className={status === "trial" ? "bg-emerald-100 text-emerald-700" : status === "active" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}>
-                  {status === "trial" ? "Free Trial" : status === "active" ? "Active" : status === "expired" ? "Expired" : "Cancelled"}
-                </Badge>
-                <span className="font-semibold text-lg capitalize">{currentPlan} Plan</span>
+      {/* Trial Status */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CreditCard className="h-5 w-5 text-indigo-600" />
+              <div>
+                <p className="font-medium">
+                  {status === "active" ? (
+                    <><Badge className="bg-emerald-100 text-emerald-700 mr-2">Active</Badge> {currentPlan} Plan</>
+                  ) : status === "trial" ? (
+                    <><Badge className="bg-amber-100 text-amber-700 mr-2">Trial</Badge> {trialDaysLeft} days remaining</>
+                  ) : (
+                    <Badge variant="destructive">Expired</Badge>
+                  )}
+                </p>
+                {status === "trial" && <Progress value={((trialTotal - trialDaysLeft) / trialTotal) * 100} className="h-1.5 mt-2 w-48" />}
               </div>
-              {status === "trial" && (
-                <>
-                  <p className="text-sm text-muted-foreground">Your free trial is active. {trialDaysLeft} days remaining.</p>
-                  <div className="flex items-center gap-3 w-[300px]">
-                    <Progress value={((trialTotal - trialDaysLeft) / trialTotal) * 100} className="h-2" />
-                    <span className="text-sm font-medium">{trialDaysLeft}/{trialTotal} days</span>
-                  </div>
-                </>
-              )}
-              {status === "active" && <p className="text-sm text-muted-foreground">Your subscription is active.</p>}
-              {status === "expired" && <p className="text-sm text-red-600">Your subscription has expired. Please renew to continue.</p>}
-              {!activeCompany && <p className="text-sm text-muted-foreground">Create a company first to start your free trial.</p>}
             </div>
+            {!activeCompany && <p className="text-sm text-muted-foreground">Create a company first to start your free trial.</p>}
           </div>
         </CardContent>
       </Card>
@@ -114,6 +208,16 @@ export default function Subscription() {
         <Button variant={interval === "yearly" ? "default" : "outline"} size="sm" onClick={() => setInterval("yearly")}>
           Yearly <Badge className="ml-2 bg-emerald-100 text-emerald-700 text-xs">Save 20%</Badge>
         </Button>
+      </div>
+
+      {/* Payment Method Indicator */}
+      <div className="flex items-center justify-center gap-2">
+        <span className="text-sm text-muted-foreground">Payment via:</span>
+        {isRazorpayAvailable ? (
+          <Badge variant="outline" className="border-blue-500 text-blue-700">Razorpay (UPI, Cards, NetBanking)</Badge>
+        ) : (
+          <Badge variant="outline" className="border-purple-500 text-purple-700">Stripe (Cards)</Badge>
+        )}
       </div>
 
       {/* Plans Grid */}
@@ -150,7 +254,7 @@ export default function Subscription() {
                 ) : currentPlan === plan.id && status === "active" ? (
                   "Current Plan"
                 ) : (
-                  <>Choose {plan.name}<ArrowRight className="h-4 w-4 ml-2" /></>
+                  <>{isRazorpayAvailable ? "Pay with Razorpay" : "Choose"} {plan.name}<ArrowRight className="h-4 w-4 ml-2" /></>
                 )}
               </Button>
             </CardContent>
@@ -162,7 +266,16 @@ export default function Subscription() {
       <Card className="bg-amber-50 border-amber-200">
         <CardContent className="p-4">
           <p className="text-sm text-amber-800 font-medium">Testing Mode</p>
-          <p className="text-sm text-amber-700 mt-1">Use test card number <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">4242 4242 4242 4242</code> with any future expiry date and CVC to test payments.</p>
+          {isRazorpayAvailable ? (
+            <div className="text-sm text-amber-700 mt-1 space-y-1">
+              <p>Use these test credentials for Razorpay:</p>
+              <p>• UPI: <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">success@razorpay</code></p>
+              <p>• Card: <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">4111 1111 1111 1111</code> (any future expiry, any CVV)</p>
+              <p>• NetBanking: Select any bank → click "Success"</p>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-700 mt-1">Use test card number <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">4242 4242 4242 4242</code> with any future expiry date and CVC to test payments.</p>
+          )}
         </CardContent>
       </Card>
 

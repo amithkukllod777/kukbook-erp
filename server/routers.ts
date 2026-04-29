@@ -504,6 +504,38 @@ export const appRouter = router({
       const { PLANS } = await import("./stripe-products");
       return PLANS;
     }),
+    // ─── Razorpay ───
+    razorpayCreateOrder: protectedProcedure.input(z.object({
+      companyId: z.number(),
+      plan: z.string(),
+      interval: z.enum(["monthly", "yearly"]),
+    })).mutation(async ({ ctx, input }) => {
+      const { createRazorpayOrder } = await import("./razorpay-webhook");
+      return createRazorpayOrder({
+        companyId: input.companyId,
+        plan: input.plan,
+        interval: input.interval,
+        userId: ctx.user!.id,
+        userEmail: ctx.user!.email || "",
+        userName: ctx.user!.name || "",
+      });
+    }),
+    razorpayVerify: protectedProcedure.input(z.object({
+      companyId: z.number(),
+      razorpayOrderId: z.string(),
+      razorpayPaymentId: z.string(),
+      razorpaySignature: z.string(),
+      plan: z.string(),
+      interval: z.enum(["monthly", "yearly"]),
+    })).mutation(async ({ input }) => {
+      const { verifyRazorpayPayment } = await import("./razorpay-webhook");
+      return verifyRazorpayPayment(input);
+    }),
+    razorpayKeyId: protectedProcedure.input(z.object({ companyId: z.number() })).query(async ({ input }) => {
+      const { getRazorpayKeyId } = await import("./razorpay-webhook");
+      const keyId = await getRazorpayKeyId(input.companyId);
+      return { keyId };
+    }),
   }),
   // ═══ HIGH PRIORITY FEATURES ═══
   partialPayments: router({
