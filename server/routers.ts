@@ -83,8 +83,11 @@ export const appRouter = router({
     create: companyProcedure.input(z.object({
       invoiceId: z.string(), customerId: z.number(), customerName: z.string(), date: z.string(), dueDate: z.string(), status: z.string(),
       subtotal: z.string(), cgst: z.string().default('0'), sgst: z.string().default('0'), igst: z.string().default('0'), total: z.string(),
-      lines: z.array(z.object({ description: z.string(), hsnCode: z.string().optional(), qty: z.number(), rate: z.string(), discount: z.string().optional(), gstRate: z.string().optional(), amount: z.string() })),
-      tcsSection: z.string().optional(), tcsRate: z.string().optional(), tcsAmount: z.string().optional(), tcsTotal: z.string().optional()
+      lines: z.array(z.object({ description: z.string(), hsnCode: z.string().optional(), qty: z.number(), rate: z.string(), discount: z.string().optional(), gstRate: z.string().optional(), amount: z.string(), batchNumber: z.string().optional(), expiryDate: z.string().optional(), mfgDate: z.string().optional(), mrp: z.string().optional(), taxablePrice: z.string().optional(), upc: z.string().optional() })),
+      tcsSection: z.string().optional(), tcsRate: z.string().optional(), tcsAmount: z.string().optional(), tcsTotal: z.string().optional(),
+      poNumber: z.string().optional(), poDate: z.string().optional(), ewayBillNumber: z.string().optional(),
+      vehicleNumber: z.string().optional(), transportMode: z.string().optional(), transporterName: z.string().optional(),
+      paymentTerms: z.string().optional(), placeOfSupply: z.string().optional(), amountInWords: z.string().optional()
     })).mutation(async ({ ctx, input }) => { await db.createInvoice(ctx.companyId, input); await db.logActivity({ companyId: ctx.companyId, userId: ctx.user.id, userName: ctx.user.name || "User", action: "create", entityType: "invoice", entityName: input.customerName }); broadcastToCompany(ctx.companyId, { type: "invoice_created", data: { customerName: input.customerName } }); return { success: true }; }),
     tcsSections: publicProcedure.query(() => db.TCS_SECTIONS),
     updateStatus: companyProcedure.input(z.object({ id: z.number(), status: z.string() })).mutation(async ({ ctx, input }) => {

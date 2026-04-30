@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, Settings, Save, CreditCard, Eye, EyeOff, ExternalLink, FileText } from "lucide-react";
+import { Shield, Settings, Save, CreditCard, Eye, EyeOff, ExternalLink, FileText, ToggleLeft, ToggleRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -144,6 +144,66 @@ export default function AdminSettings() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Invoice Section ON/OFF Settings */}
+      <Card className="shadow-sm border-indigo-200">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ToggleLeft className="h-4 w-4 text-indigo-600" />
+            Invoice Sections (Show/Hide)
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Control which sections appear on invoice form and PDF
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { key: "inv_section_gst", label: "GST Section", desc: "CGST/SGST/IGST calculation" },
+              { key: "inv_section_tcs", label: "TCS Section", desc: "Tax Collected at Source" },
+              { key: "inv_section_discount", label: "Discount", desc: "Line item & overall discount" },
+              { key: "inv_section_hsn", label: "HSN Code", desc: "HSN/SAC code column" },
+              { key: "inv_section_batch", label: "Batch/Expiry/MFG", desc: "Batch number, expiry & mfg date" },
+              { key: "inv_section_mrp", label: "MRP Column", desc: "Maximum retail price" },
+              { key: "inv_section_upc", label: "UPC/Barcode", desc: "Product barcode" },
+              { key: "inv_section_po", label: "PO Number/Date", desc: "Purchase order reference" },
+              { key: "inv_section_eway", label: "E-Way Bill", desc: "E-Way bill number" },
+              { key: "inv_section_transport", label: "Transport Details", desc: "Vehicle, mode, transporter" },
+              { key: "inv_section_bank", label: "Bank Details on PDF", desc: "Show bank info on invoice PDF" },
+              { key: "inv_section_signature", label: "Signature Block", desc: "Authorized signatory on PDF" },
+              { key: "inv_section_terms", label: "Terms & Conditions", desc: "T&C section on PDF" },
+              { key: "inv_section_amount_words", label: "Amount in Words", desc: "Total amount in words" },
+            ].map((section) => {
+              const isOn = values[section.key] !== "off";
+              return (
+                <div key={section.key} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium">{section.label}</p>
+                    <p className="text-xs text-muted-foreground">{section.desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                      isOn ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+                    }`}
+                    onClick={() => {
+                      const newVal = isOn ? "off" : "on";
+                      setValues({ ...values, [section.key]: newVal });
+                      upsertMut.mutate({ key: section.key, value: newVal });
+                    }}
+                  >
+                    {isOn ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                    {isOn ? "ON" : "OFF"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Sections marked OFF will be hidden from the invoice creation form and will not appear on generated PDF invoices.
+          </p>
         </CardContent>
       </Card>
 

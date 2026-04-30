@@ -522,51 +522,53 @@
 - [ ] Different layouts for: Invoice, Estimate, Proforma, Delivery Challan, Credit Note
 
 ## Invoice Line Items — Batch / Barcode / Expiry / MFG Date
-- [ ] Batch Number field on invoice line items (select from inventory batches)
-- [ ] Barcode field on invoice line items (auto-fill from inventory item)
-- [ ] Expiry Date field on invoice line items (auto-fill from batch)
-- [ ] Manufactured Date field on invoice line items (auto-fill from batch)
+- [x] Batch Number field on invoice line items
+- [x] Barcode/UPC field on invoice line items
+- [x] Expiry Date field on invoice line items
+- [x] Manufactured Date field on invoice line items
+- [x] MRP field on invoice line items
+- [x] HSN Code column in invoice form
 - [ ] Same fields on Bill line items (purchase side)
 - [ ] Batch selection dropdown (shows available batches for selected item with qty & expiry)
 
 ## Invoice — PO Number & PO Date
-- [ ] PO Number field on Invoice form (customer's purchase order reference)
-- [ ] PO Date field on Invoice form
-- [ ] PO Number shown on Invoice PDF
+- [x] PO Number field on Invoice form (customer's purchase order reference)
+- [x] PO Date field on Invoice form
+- [x] PO Number shown on Invoice PDF
 - [ ] PO Number field on Bill form (our PO reference to vendor)
 
 ## Invoice — Payment Due Period (Quick Select)
-- [ ] Payment terms quick-select dropdown: Immediate, 7 Days, 15 Days, 30 Days, 45 Days, 60 Days, 90 Days, Custom
-- [ ] Auto-calculate Due Date from Invoice Date + selected period
+- [x] Payment terms quick-select dropdown: Immediate, 7 Days, 15 Days, 30 Days, 45 Days, 60 Days, 90 Days, Custom
+- [x] Auto-calculate Due Date from Invoice Date + selected period
 - [ ] Default payment terms setting per company (in Admin Settings)
 - [ ] Default payment terms per customer (set on customer profile, auto-apply on invoice)
 - [ ] Payment terms prefix/label customization
 
 ## Invoice — E-Way Bill & Vehicle Fields
-- [ ] E-Way Bill Number field on Invoice form
+- [x] E-Way Bill Number field on Invoice form
 - [ ] E-Way Bill Date field on Invoice form
-- [ ] Vehicle Number field on Invoice form (for transport)
-- [ ] Transport Mode field (Road / Rail / Air / Ship)
-- [ ] Transporter Name field
-- [ ] These fields shown on Invoice PDF when filled
+- [x] Vehicle Number field on Invoice form (for transport)
+- [x] Transport Mode field (Road / Rail / Air / Ship)
+- [x] Transporter Name field
+- [x] These fields shown on Invoice PDF when filled
 
 ## Invoice Section ON/OFF Settings (Admin Settings → Invoice Sections)
-- [ ] Toggle: Show/Hide GST breakup section (CGST/SGST/IGST columns)
-- [ ] Toggle: Show/Hide TCS section
-- [ ] Toggle: Show/Hide Discount column
-- [ ] Toggle: Show/Hide HSN Code column
-- [ ] Toggle: Show/Hide Batch Number column
-- [ ] Toggle: Show/Hide Barcode column
-- [ ] Toggle: Show/Hide Expiry Date column
-- [ ] Toggle: Show/Hide MFG Date column
-- [ ] Toggle: Show/Hide PO Number & Date
-- [ ] Toggle: Show/Hide E-Way Bill fields
-- [ ] Toggle: Show/Hide Vehicle/Transport fields
+- [x] Toggle: Show/Hide GST breakup section (CGST/SGST/IGST columns)
+- [x] Toggle: Show/Hide TCS section
+- [x] Toggle: Show/Hide Discount column
+- [x] Toggle: Show/Hide HSN Code column
+- [x] Toggle: Show/Hide Batch Number column
+- [x] Toggle: Show/Hide Barcode column
+- [x] Toggle: Show/Hide Expiry Date column
+- [x] Toggle: Show/Hide MFG Date column
+- [x] Toggle: Show/Hide PO Number & Date
+- [x] Toggle: Show/Hide E-Way Bill fields
+- [x] Toggle: Show/Hide Vehicle/Transport fields
 - [ ] Toggle: Show/Hide Place of Supply
-- [ ] Toggle: Show/Hide Terms & Conditions in PDF
-- [ ] Toggle: Show/Hide Bank Details in PDF
-- [ ] Toggle: Show/Hide Signature block in PDF
-- [ ] Settings saved per company in DB, applied to invoice form + PDF export
+- [x] Toggle: Show/Hide Terms & Conditions in PDF
+- [x] Toggle: Show/Hide Bank Details in PDF
+- [x] Toggle: Show/Hide Signature block in PDF
+- [x] Settings saved per company in DB, applied to invoice form + PDF export
 
 ## Invoice PDF Layouts (Phase 2 Complete)
 - [x] 5 Professional Invoice Layouts (Professional/FoodOnDoor, Modern, Corporate, Minimal, Creative)

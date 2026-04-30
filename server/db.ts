@@ -464,7 +464,10 @@ export async function createInvoice(companyId: number, data: {
   invoiceId: string; customerId: number; customerName: string; date: string; dueDate: string; status: string;
   subtotal: string; cgst: string; sgst: string; igst: string; total: string;
   tcsSection?: string; tcsRate?: string; tcsAmount?: string; tcsTotal?: string;
-  lines: { description: string; hsnCode?: string; qty: number; rate: string; discount?: string; gstRate?: string; amount: string }[]
+  poNumber?: string; poDate?: string; ewayBillNumber?: string;
+  vehicleNumber?: string; transportMode?: string; transporterName?: string;
+  paymentTerms?: string; placeOfSupply?: string; amountInWords?: string;
+  lines: { description: string; hsnCode?: string; qty: number; rate: string; discount?: string; gstRate?: string; amount: string; batchNumber?: string; expiryDate?: string; mfgDate?: string; mrp?: string; taxablePrice?: string; upc?: string }[]
 }) {
   const db = await getDb(); if (!db) return;
   const [result] = await db.insert(invoices).values({
@@ -474,13 +477,22 @@ export async function createInvoice(companyId: number, data: {
     total: data.tcsTotal || data.total,
     tcsSection: data.tcsSection || null, tcsRate: data.tcsRate || '0',
     tcsAmount: data.tcsAmount || '0', tcsTotal: data.tcsTotal || '0',
+    poNumber: data.poNumber || null, poDate: data.poDate || null,
+    ewayBillNumber: data.ewayBillNumber || null,
+    vehicleNumber: data.vehicleNumber || null, transportMode: data.transportMode || null,
+    transporterName: data.transporterName || null,
+    paymentTerms: data.paymentTerms || null, placeOfSupply: data.placeOfSupply || null,
+    amountInWords: data.amountInWords || null,
     companyId
   } as any).$returningId();
   if (data.lines.length > 0) {
     await db.insert(invoiceLines).values(data.lines.map(l => ({
       invoiceId: result.id, description: l.description, hsnCode: l.hsnCode,
       qty: l.qty, rate: l.rate, discount: l.discount || '0',
-      gstRate: l.gstRate || '0', amount: l.amount
+      gstRate: l.gstRate || '0', amount: l.amount,
+      batchNumber: l.batchNumber || null, expiryDate: l.expiryDate || null,
+      mfgDate: l.mfgDate || null, mrp: l.mrp || null,
+      taxablePrice: l.taxablePrice || null, upc: l.upc || null
     })));
   }
   // Auto-post journal entry: Dr. Accounts Receivable, Cr. Sales + GST

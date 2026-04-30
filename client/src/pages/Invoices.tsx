@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Search, CheckCircle, Send, FileDown, FileSpreadsheet, IndianRupee, Share2 } from "lucide-react";
+import { Plus, Trash2, Search, CheckCircle, Send, FileDown, FileSpreadsheet, IndianRupee, Share2, ChevronDown, ChevronUp } from "lucide-react";
 import { exportToPDF, exportToCSV, exportInvoicePDF } from "@/lib/export";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -25,6 +25,52 @@ const INDIAN_STATES = [
 ];
 
 const GST_RATES = ["0", "5", "12", "18", "28"];
+
+const PAYMENT_TERMS = [
+  { label: "Immediate", days: 0 },
+  { label: "7 Days", days: 7 },
+  { label: "15 Days", days: 15 },
+  { label: "30 Days", days: 30 },
+  { label: "45 Days", days: 45 },
+  { label: "60 Days", days: 60 },
+  { label: "90 Days", days: 90 },
+  { label: "Custom", days: -1 },
+];
+
+const TRANSPORT_MODES = ["Road", "Rail", "Air", "Ship"];
+
+function numberToWords(num: number): string {
+  if (num === 0) return "Zero Rupees only";
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const scales = ["", "Thousand", "Lakh", "Crore"];
+  
+  const convert = (n: number): string => {
+    if (n === 0) return "";
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+    return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convert(n % 100) : "");
+  };
+  
+  const intPart = Math.floor(num);
+  const paise = Math.round((num - intPart) * 100);
+  
+  // Indian numbering: Crore, Lakh, Thousand, Hundred
+  let result = "";
+  let remaining = intPart;
+  const crore = Math.floor(remaining / 10000000); remaining %= 10000000;
+  const lakh = Math.floor(remaining / 100000); remaining %= 100000;
+  const thousand = Math.floor(remaining / 1000); remaining %= 1000;
+  
+  if (crore) result += convert(crore) + " Crore ";
+  if (lakh) result += convert(lakh) + " Lakh ";
+  if (thousand) result += convert(thousand) + " Thousand ";
+  if (remaining) result += convert(remaining);
+  
+  result = result.trim() + " Rupees";
+  if (paise > 0) result += " and " + convert(paise) + " Paise";
+  return result + " only";
+}
 
 export default function Invoices() {
   const utils = trpc.useUtils();
@@ -52,7 +98,16 @@ export default function Invoices() {
   const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [tcsEnabled, setTcsEnabled] = useState(false);
   const [tcsSection, setTcsSection] = useState("");
-  const [form, setForm] = useState({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", poNumber: "", poDate: "", ewayBillNumber: "", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0" }] });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showLineDetails, setShowLineDetails] = useState(false);
+
+  const emptyLine = { description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0", hsnCode: "", upc: "" };
+  const [form, setForm] = useState({
+    customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0",
+    poNumber: "", poDate: "", ewayBillNumber: "",
+    vehicleNumber: "", transportMode: "", transporterName: "",
+    paymentTerms: "", lines: [{ ...emptyLine }]
+  });
 
   // TCS Sections for sales
   const TCS_SECTIONS = [
@@ -89,7 +144,7 @@ export default function Invoices() {
   const tcsAmount = tcsEnabled && tcsRate > 0 ? Math.round(totalBeforeTcs * tcsRate / 100 * 100) / 100 : 0;
   const total = totalBeforeTcs + tcsAmount;
 
-  const addLine = () => setForm({ ...form, lines: [...form.lines, { description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0" }] });
+  const addLine = () => setForm({ ...form, lines: [...form.lines, { ...emptyLine }] });
   const removeLine = (i: number) => { if (form.lines.length <= 1) return; setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) }); };
   const updateLine = (i: number, field: string, value: any) => {
     const lines = [...form.lines];
@@ -103,11 +158,18 @@ export default function Invoices() {
   };
 
   const openCreate = () => {
-    setForm({ customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0", poNumber: "", poDate: "", ewayBillNumber: "", lines: [{ description: "", qty: 1, rate: "0", discount: "0", amount: "0", batchNumber: "", expiryDate: "", mfgDate: "", mrp: "0" }] });
+    setForm({
+      customerId: 0, customerName: "", date: new Date().toISOString().split("T")[0], dueDate: "", discount: "0",
+      poNumber: "", poDate: "", ewayBillNumber: "",
+      vehicleNumber: "", transportMode: "", transporterName: "",
+      paymentTerms: "", lines: [{ ...emptyLine }]
+    });
     setGstRate("18");
     setPlaceOfSupply("");
     setTcsEnabled(false);
     setTcsSection("");
+    setShowAdvanced(false);
+    setShowLineDetails(false);
     setOpen(true);
   };
 
@@ -116,6 +178,18 @@ export default function Invoices() {
     setForm({ ...form, customerId, customerName: c?.name || "" });
     // Auto-set place of supply from customer's state
     if (c?.state) setPlaceOfSupply(c.state);
+  };
+
+  const handlePaymentTermsChange = (value: string) => {
+    setForm({ ...form, paymentTerms: value });
+    if (value !== "custom" && value !== "") {
+      const days = Number(value);
+      if (days >= 0 && form.date) {
+        const d = new Date(form.date);
+        d.setDate(d.getDate() + days);
+        setForm(prev => ({ ...prev, paymentTerms: value, dueDate: d.toISOString().split("T")[0] }));
+      }
+    }
   };
 
   const handleSave = () => {
@@ -134,11 +208,26 @@ export default function Invoices() {
       sgst: String(sgst),
       igst: String(igst),
       total: String(total),
-      lines: form.lines.map(l => ({ ...l, rate: String(l.rate), amount: String(l.amount) })),
+      lines: form.lines.map(l => ({
+        description: l.description, qty: l.qty, rate: String(l.rate), amount: String(l.amount),
+        discount: String(l.discount), hsnCode: l.hsnCode || undefined, gstRate: gstRate,
+        batchNumber: l.batchNumber || undefined, expiryDate: l.expiryDate || undefined,
+        mfgDate: l.mfgDate || undefined, mrp: l.mrp && l.mrp !== "0" ? l.mrp : undefined,
+        upc: l.upc || undefined
+      })),
       tcsSection: tcsEnabled ? tcsSection : undefined,
       tcsRate: tcsEnabled ? String(tcsRate) : undefined,
       tcsAmount: tcsEnabled ? String(tcsAmount) : undefined,
       tcsTotal: tcsEnabled ? String(total) : undefined,
+      poNumber: form.poNumber || undefined,
+      poDate: form.poDate || undefined,
+      ewayBillNumber: form.ewayBillNumber || undefined,
+      vehicleNumber: form.vehicleNumber || undefined,
+      transportMode: form.transportMode || undefined,
+      transporterName: form.transporterName || undefined,
+      paymentTerms: form.paymentTerms || undefined,
+      placeOfSupply: placeOfSupply || undefined,
+      amountInWords: numberToWords(total),
     });
   };
 
@@ -200,11 +289,12 @@ export default function Invoices() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Invoice</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
+            {/* Row 1: Customer, Date, Due Date */}
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1"><label className="text-sm font-medium">Customer *</label>
+              <div><label className="text-sm font-medium">Customer *</label>
                 <Select value={String(form.customerId || "")} onValueChange={v => handleCustomerChange(Number(v))}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>{customers.map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
@@ -212,6 +302,23 @@ export default function Invoices() {
               </div>
               <div><label className="text-sm font-medium">Date</label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
               <div><label className="text-sm font-medium">Due Date *</label><Input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></div>
+            </div>
+
+            {/* Row 2: Payment Terms */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium">Payment Terms</label>
+                <Select value={form.paymentTerms} onValueChange={handlePaymentTermsChange}>
+                  <SelectTrigger><SelectValue placeholder="Select terms" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_TERMS.map(t => (
+                      <SelectItem key={t.label} value={String(t.days)}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><label className="text-sm font-medium">PO Number</label><Input value={form.poNumber} onChange={e => setForm({ ...form, poNumber: e.target.value })} placeholder="Customer PO #" /></div>
+              <div><label className="text-sm font-medium">PO Date</label><Input type="date" value={form.poDate} onChange={e => setForm({ ...form, poDate: e.target.value })} /></div>
             </div>
 
             {/* GST Section */}
@@ -242,38 +349,102 @@ export default function Invoices() {
               </div>
             </div>
 
+            {/* E-Way Bill & Transport (Collapsible) */}
+            <div className="border rounded-lg">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                <span className="text-amber-800">E-Way Bill & Transport Details</span>
+                {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              {showAdvanced && (
+                <div className="p-3 pt-0 grid grid-cols-3 gap-4 border-t bg-amber-50/30">
+                  <div><label className="text-sm font-medium text-amber-700">E-Way Bill No.</label><Input value={form.ewayBillNumber} onChange={e => setForm({ ...form, ewayBillNumber: e.target.value })} placeholder="E-Way Bill Number" /></div>
+                  <div><label className="text-sm font-medium text-amber-700">Vehicle Number</label><Input value={form.vehicleNumber} onChange={e => setForm({ ...form, vehicleNumber: e.target.value })} placeholder="MH 12 AB 1234" /></div>
+                  <div>
+                    <label className="text-sm font-medium text-amber-700">Transport Mode</label>
+                    <Select value={form.transportMode} onValueChange={v => setForm({ ...form, transportMode: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{TRANSPORT_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-3"><label className="text-sm font-medium text-amber-700">Transporter Name</label><Input value={form.transporterName} onChange={e => setForm({ ...form, transporterName: e.target.value })} placeholder="Transport company name" /></div>
+                </div>
+              )}
+            </div>
+
+            {/* Line Items */}
             <div>
-              <div className="flex items-center justify-between mb-2"><label className="text-sm font-medium">Line Items</label><Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add</Button></div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">Line Items</label>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowLineDetails(!showLineDetails)}>
+                    {showLineDetails ? "Hide" : "Show"} Batch/Expiry
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add</Button>
+                </div>
+              </div>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Description</TableHead><TableHead className="w-[80px]">Qty</TableHead><TableHead className="w-[100px]">Rate</TableHead><TableHead className="w-[100px]">Discount</TableHead><TableHead className="w-[100px]">Amount</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-[80px]">HSN</TableHead>
+                      <TableHead className="w-[60px]">Qty</TableHead>
+                      <TableHead className="w-[90px]">Rate</TableHead>
+                      <TableHead className="w-[80px]">Discount</TableHead>
+                      <TableHead className="w-[90px]">Amount</TableHead>
+                      <TableHead className="w-[40px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {form.lines.map((line, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Input value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Item description" /></TableCell>
-                        <TableCell><Input type="number" value={line.qty} onChange={e => updateLine(i, "qty", Number(e.target.value))} /></TableCell>
-                        <TableCell><Input type="number" value={line.rate} onChange={e => updateLine(i, "rate", e.target.value)} /></TableCell>
-                        <TableCell><Input type="number" value={line.discount} onChange={e => updateLine(i, "discount", e.target.value)} placeholder="0" /></TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">{fmt(Number(line.amount))}</TableCell>
-                        <TableCell><Button variant="ghost" size="icon" onClick={() => removeLine(i)}><Trash2 className="h-3 w-3" /></Button></TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow key={`main-${i}`}>
+                          <TableCell><Input value={line.description} onChange={e => updateLine(i, "description", e.target.value)} placeholder="Item description" /></TableCell>
+                          <TableCell><Input value={line.hsnCode} onChange={e => updateLine(i, "hsnCode", e.target.value)} placeholder="HSN" /></TableCell>
+                          <TableCell><Input type="number" value={line.qty} onChange={e => updateLine(i, "qty", Number(e.target.value))} /></TableCell>
+                          <TableCell><Input type="number" value={line.rate} onChange={e => updateLine(i, "rate", e.target.value)} /></TableCell>
+                          <TableCell><Input type="number" value={line.discount} onChange={e => updateLine(i, "discount", e.target.value)} placeholder="0" /></TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">{fmt(Number(line.amount))}</TableCell>
+                          <TableCell><Button variant="ghost" size="icon" onClick={() => removeLine(i)}><Trash2 className="h-3 w-3" /></Button></TableCell>
+                        </TableRow>
+                        {showLineDetails && (
+                          <TableRow key={`detail-${i}`} className="bg-muted/20">
+                            <TableCell colSpan={7}>
+                              <div className="grid grid-cols-5 gap-2 py-1">
+                                <div><label className="text-xs text-muted-foreground">Batch No.</label><Input value={line.batchNumber} onChange={e => updateLine(i, "batchNumber", e.target.value)} placeholder="Batch" className="h-7 text-xs" /></div>
+                                <div><label className="text-xs text-muted-foreground">Expiry Date</label><Input type="date" value={line.expiryDate} onChange={e => updateLine(i, "expiryDate", e.target.value)} className="h-7 text-xs" /></div>
+                                <div><label className="text-xs text-muted-foreground">MFG Date</label><Input type="date" value={line.mfgDate} onChange={e => updateLine(i, "mfgDate", e.target.value)} className="h-7 text-xs" /></div>
+                                <div><label className="text-xs text-muted-foreground">MRP (₹)</label><Input type="number" value={line.mrp} onChange={e => updateLine(i, "mrp", e.target.value)} placeholder="0" className="h-7 text-xs" /></div>
+                                <div><label className="text-xs text-muted-foreground">UPC/Barcode</label><Input value={line.upc} onChange={e => updateLine(i, "upc", e.target.value)} placeholder="Barcode" className="h-7 text-xs" /></div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
-                    <TableRow className="bg-muted/30"><TableCell colSpan={4} className="text-right text-sm">Subtotal</TableCell><TableCell className="text-right tabular-nums">{fmt(subtotal)}</TableCell><TableCell /></TableRow>
-                    <TableRow className="bg-muted/30"><TableCell colSpan={4} className="text-right text-sm">Discount</TableCell><TableCell><Input type="number" value={form.discount} onChange={e => setForm({ ...form, discount: e.target.value })} className="text-right h-8" /></TableCell><TableCell /></TableRow>
-                    <TableRow className="bg-muted/30"><TableCell colSpan={4} className="text-right text-sm font-medium">Taxable Value</TableCell><TableCell className="text-right font-medium tabular-nums">{fmt(taxableValue)}</TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/30"><TableCell colSpan={5} className="text-right text-sm">Subtotal</TableCell><TableCell className="text-right tabular-nums">{fmt(subtotal)}</TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/30"><TableCell colSpan={5} className="text-right text-sm">Discount</TableCell><TableCell><Input type="number" value={form.discount} onChange={e => setForm({ ...form, discount: e.target.value })} className="text-right h-8" /></TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/30"><TableCell colSpan={5} className="text-right text-sm font-medium">Taxable Value</TableCell><TableCell className="text-right font-medium tabular-nums">{fmt(taxableValue)}</TableCell><TableCell /></TableRow>
                     {!isInterState && gstPercent > 0 && (
                       <>
-                        <TableRow className="bg-blue-50/50"><TableCell colSpan={4} className="text-right text-sm text-blue-700">CGST @ {gstPercent / 2}%</TableCell><TableCell className="text-right tabular-nums text-blue-700">{fmt(cgst)}</TableCell><TableCell /></TableRow>
-                        <TableRow className="bg-blue-50/50"><TableCell colSpan={4} className="text-right text-sm text-blue-700">SGST @ {gstPercent / 2}%</TableCell><TableCell className="text-right tabular-nums text-blue-700">{fmt(sgst)}</TableCell><TableCell /></TableRow>
+                        <TableRow className="bg-blue-50/50"><TableCell colSpan={5} className="text-right text-sm text-blue-700">CGST @ {gstPercent / 2}%</TableCell><TableCell className="text-right tabular-nums text-blue-700">{fmt(cgst)}</TableCell><TableCell /></TableRow>
+                        <TableRow className="bg-blue-50/50"><TableCell colSpan={5} className="text-right text-sm text-blue-700">SGST @ {gstPercent / 2}%</TableCell><TableCell className="text-right tabular-nums text-blue-700">{fmt(sgst)}</TableCell><TableCell /></TableRow>
                       </>
                     )}
                     {isInterState && gstPercent > 0 && (
-                      <TableRow className="bg-orange-50/50"><TableCell colSpan={4} className="text-right text-sm text-orange-700">IGST @ {gstPercent}%</TableCell><TableCell className="text-right tabular-nums text-orange-700">{fmt(igst)}</TableCell><TableCell /></TableRow>
+                      <TableRow className="bg-orange-50/50"><TableCell colSpan={5} className="text-right text-sm text-orange-700">IGST @ {gstPercent}%</TableCell><TableCell className="text-right tabular-nums text-orange-700">{fmt(igst)}</TableCell><TableCell /></TableRow>
                     )}
                     {tcsEnabled && tcsAmount > 0 && (
-                      <TableRow className="bg-purple-50/50"><TableCell colSpan={4} className="text-right text-sm text-purple-700">TCS ({tcsSection} @ {tcsRate}%)</TableCell><TableCell className="text-right tabular-nums text-purple-700">{fmt(tcsAmount)}</TableCell><TableCell /></TableRow>
+                      <TableRow className="bg-purple-50/50"><TableCell colSpan={5} className="text-right text-sm text-purple-700">TCS ({tcsSection} @ {tcsRate}%)</TableCell><TableCell className="text-right tabular-nums text-purple-700">{fmt(tcsAmount)}</TableCell><TableCell /></TableRow>
                     )}
-                    <TableRow className="bg-muted/50"><TableCell colSpan={4} className="text-right font-bold">Total{tcsEnabled && tcsAmount > 0 ? ' (incl. TCS)' : ''}</TableCell><TableCell className="text-right font-bold tabular-nums text-lg">{fmt(total)}</TableCell><TableCell /></TableRow>
+                    <TableRow className="bg-muted/50"><TableCell colSpan={5} className="text-right font-bold">Total{tcsEnabled && tcsAmount > 0 ? ' (incl. TCS)' : ''}</TableCell><TableCell className="text-right font-bold tabular-nums text-lg">{fmt(total)}</TableCell><TableCell /></TableRow>
+                    {total > 0 && (
+                      <TableRow className="bg-muted/20"><TableCell colSpan={7} className="text-xs text-muted-foreground italic">{numberToWords(total)}</TableCell></TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
